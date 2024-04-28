@@ -56,55 +56,71 @@ spec:
                     type: string
                   description: A map of NAT gateways defined in this VPC
                   type: object
-                  x-kubernetes-map-type: granular
+                  x-kubernetes-map-type: atomic
                 privateRouteTables:
-                  additionalProperties:
-                    type: string
                   description: A map of private route tables defined in this VPC
-                  type: object
-                  x-kubernetes-map-type: granular
+                  items:
+                    additionalProperties:
+                      type: string
+                    description: StatusRouteTables is a map of route tables and their
+                      status
+                    type: object
+                    x-kubernetes-map-type: atomic
+                  type: array
+                  x-kubernetes-list-type: atomic
                 privateSubnets:
-                  additionalProperties:
-                    type: string
                   description: A map of private subnets defined in this VPC
-                  type: object
-                  x-kubernetes-map-type: granular
+                  items:
+                    additionalProperties:
+                      type: string
+                    description: StatusSubnets is a map of subnets and their status
+                    type: object
+                    x-kubernetes-map-type: atomic
+                  type: array
+                  x-kubernetes-list-type: atomic
                 publicRouteTables:
-                  additionalProperties:
-                    type: string
                   description: A map of public route tables defined in this VPC
-                  type: object
-                  x-kubernetes-map-type: granular
+                  items:
+                    additionalProperties:
+                      type: string
+                    description: StatusRouteTables is a map of route tables and their
+                      status
+                    type: object
+                    x-kubernetes-map-type: atomic
+                  type: array
+                  x-kubernetes-list-type: atomic
                 publicSubnets:
-                  additionalProperties:
-                    type: string
-                  description: A map of public subnets defined in this VPC
-                  type: object
-                  x-kubernetes-map-type: granular
+                  description: A list of maps of public subnets defined in this VPC
+                  items:
+                    additionalProperties:
+                      type: string
+                    description: StatusSubnets is a map of subnets and their status
+                    type: object
+                    x-kubernetes-map-type: atomic
+                  type: array
+                  x-kubernetes-list-type: atomic
                 securityGroups:
                   additionalProperties:
                     type: string
                   description: A map of security groups defined in this VPC
                   type: object
-                  x-kubernetes-map-type: granular
+                  x-kubernetes-map-type: atomic
                 transitGateways:
                   additionalProperties:
                     type: string
                   description: A map of transit gateways defined in this VPC
+                  nullable: true
                   type: object
+                  x-kubernetes-map-type: atomic
                 vpcPeeringConnections:
                   additionalProperties:
                     type: string
                   description: A map of VPC peering connections defined in this VPC
+                  nullable: true
                   type: object
-                  x-kubernetes-map-type: granular
+                  x-kubernetes-map-type: atomic
               required:
               - id
-              - privateRouteTables
-              - privateSubnets
-              - publicRouteTables
-              - publicSubnets
-              - securityGroups
               type: object
             description: The VPCs defined in this AWS account
             type: object

@@ -22,57 +22,69 @@ type Aws struct {
 	Vpcs map[string]Vpc `json:"vpcs"`
 }
 
+// StatusSubnets is a map of subnets and their status
+// +mapType=atomic
+type StatusSubnets map[string]string
+
+// StatusRouteTables is a map of route tables and their status
+// +mapType=atomic
+type StatusRouteTables map[string]string
+
 // Vpc holds VPC information
 type Vpc struct {
 	// ID The VPC ID
 	// +kubebuilder:validation:Required
+	// +required
 	ID string `json:"id"`
 
 	// The Ipv4 cidr block defined for this VPC
 	// +optional
 	CidrBlock string `json:"cidrBlock"`
 
-	// A map of public subnets defined in this VPC
-	// +kubebuilder:validation:Required
-	// +mapType=granular
-	PublicSubnets map[string]string `json:"publicSubnets"`
+	// A list of maps of public subnets defined in this VPC
+	// +listType=atomic
+	// +optional
+	PublicSubnets []StatusSubnets `json:"publicSubnets"`
 
 	// A map of private subnets defined in this VPC
-	// +kubebuilder:validation:Required
-	// +mapType=granular
-	PrivateSubnets map[string]string `json:"privateSubnets"`
+	// +listType=atomic
+	// +optional
+	PrivateSubnets []StatusSubnets `json:"privateSubnets"`
 
 	// A map of public route tables defined in this VPC
-	// +kubebuilder:validation:Required
-	// +mapType=granular
-	PublicRouteTables map[string]string `json:"publicRouteTables"`
+	// +listType=atomic
+	// +optional
+	PublicRouteTables []StatusRouteTables `json:"publicRouteTables"`
 
 	// A map of private route tables defined in this VPC
-	// +kubebuilder:validation:Required
-	// +mapType=granular
-	PrivateRouteTables map[string]string `json:"privateRouteTables"`
+	// +listType=atomic
+	// +optional
+	PrivateRouteTables []StatusRouteTables `json:"privateRouteTables"`
 
 	// The internet gateway defined in this VPC
 	// +optional
 	InternetGateway string `json:"internetGateway"`
 
 	// A map of NAT gateways defined in this VPC
-	// +mapType=granular
+	// +mapType=atomic
 	// +optional
 	NatGateways map[string]string `json:"natGateways"`
 
 	// A map of transit gateways defined in this VPC
+	// +mapType=atomic
 	// +optional
+	// +nullable
 	TransitGateways map[string]string `json:"transitGateways"`
 
 	// A map of VPC peering connections defined in this VPC
-	// +mapType=granular
+	// +mapType=atomic
 	// +optional
+	// +nullable
 	VpcPeeringConnections map[string]string `json:"vpcPeeringConnections"`
 
 	// A map of security groups defined in this VPC
-	// +kubebuilder:validation:Required
-	// +mapType=granular
+	// +mapType=atomic
+	// +optional
 	SecurityGroups map[string]string `json:"securityGroups"`
 }
 
