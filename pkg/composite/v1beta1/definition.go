@@ -32,34 +32,19 @@ type StatusRouteTables map[string]string
 
 // Vpc holds VPC information
 type Vpc struct {
-	// ID The VPC ID
-	// +kubebuilder:validation:Required
-	// +required
-	ID string `json:"id"`
+	// A list of additional VPC CIDR blocks defined in this VPC
+	// +listType=atomic
+	// +optional
+	AdditionalCidrBlocks []string `json:"additionalCidrBlocks"`
 
 	// The Ipv4 cidr block defined for this VPC
 	// +optional
 	CidrBlock string `json:"cidrBlock"`
 
-	// A list of maps of public subnets defined in this VPC
-	// +listType=atomic
-	// +optional
-	PublicSubnets []StatusSubnets `json:"publicSubnets"`
-
-	// A map of private subnets defined in this VPC
-	// +listType=atomic
-	// +optional
-	PrivateSubnets []StatusSubnets `json:"privateSubnets"`
-
-	// A map of public route tables defined in this VPC
-	// +listType=atomic
-	// +optional
-	PublicRouteTables []StatusRouteTables `json:"publicRouteTables"`
-
-	// A map of private route tables defined in this VPC
-	// +listType=atomic
-	// +optional
-	PrivateRouteTables []StatusRouteTables `json:"privateRouteTables"`
+	// ID The VPC ID
+	// +kubebuilder:validation:Required
+	// +required
+	ID string `json:"id"`
 
 	// The internet gateway defined in this VPC
 	// +optional
@@ -69,6 +54,39 @@ type Vpc struct {
 	// +mapType=atomic
 	// +optional
 	NatGateways map[string]string `json:"natGateways"`
+
+	// The provider config used to look up this VPC
+	// +optional
+	ProviderConfig string `json:"providerConfig"`
+
+	// A map of private subnets defined in this VPC
+	// +listType=atomic
+	// +optional
+	PrivateSubnets []StatusSubnets `json:"privateSubnets"`
+
+	// A list of maps of public subnets defined in this VPC
+	// +listType=atomic
+	// +optional
+	PublicSubnets []StatusSubnets `json:"publicSubnets"`
+
+	// A map of private route tables defined in this VPC
+	// +listType=atomic
+	// +optional
+	PrivateRouteTables []StatusRouteTables `json:"privateRouteTables"`
+
+	// A map of public route tables defined in this VPC
+	// +listType=atomic
+	// +optional
+	PublicRouteTables []StatusRouteTables `json:"publicRouteTables"`
+
+	// The region this VPC is located in
+	// +optional
+	Region string `json:"region"`
+
+	// A map of security groups defined in this VPC
+	// +mapType=atomic
+	// +optional
+	SecurityGroups map[string]string `json:"securityGroups"`
 
 	// A map of transit gateways defined in this VPC
 	// +mapType=atomic
@@ -81,11 +99,6 @@ type Vpc struct {
 	// +optional
 	// +nullable
 	VpcPeeringConnections map[string]string `json:"vpcPeeringConnections"`
-
-	// A map of security groups defined in this VPC
-	// +mapType=atomic
-	// +optional
-	SecurityGroups map[string]string `json:"securityGroups"`
 }
 
 // AwsSubnet is an object that holds information about a subnet defined in AWS
@@ -133,6 +146,10 @@ type Subnet struct {
 	// +optional
 	NatGateways map[string]string `json:"natGateways"`
 
+	// The tag value to group subnets by
+	// +optional
+	SubnetSet int `json:"subnetSet"`
+
 	// A map of transit gateways associated with this subnet
 	// +mapType=granular
 	// +optional
@@ -147,27 +164,31 @@ type Subnet struct {
 // AwsRouteTable is an object that holds information about a route table defined in AWS
 // +mapType=granular
 type RouteTable struct {
+	// The associations defined for this route table
+	// +listType=map
+	// +listMapKey=id
+	Associations []Association `json:"associations"`
+
 	// ID The route table ID
 	// +kubebuilder:validation:Required
 	ID string `json:"id"`
-
-	// The name of the route table
-	// +optional
-	Name string `json:"name"`
 
 	// Is this a public route table. Determined by validating the
 	// existence of an internet gateway
 	// +optional
 	IsPublic bool `json:"isPublic"`
 
+	// The name of the route table
+	// +optional
+	Name string `json:"name"`
+
 	// The routes defined in this route table
 	// +mapType=granular
 	Routes map[string]Route `json:"routes"`
 
-	// The associations defined for this route table
-	// +listType=map
-	// +listMapKey=id
-	Associations []Association `json:"associations"`
+	// The tag value to group route tables by
+	// +optional
+	SubnetSet int `json:"subnetSet"`
 }
 
 // AwsRoute is an object that holds information about a route defined in AWS

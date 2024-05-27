@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -11,6 +12,7 @@ import (
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
 	"github.com/crossplane/crossplane-runtime/pkg/logging"
 	xfnd "github.com/giantswarm/crossplane-fn-network-discovery/pkg/composite/v1beta1"
+	inp "github.com/giantswarm/crossplane-fn-network-discovery/pkg/input/v1beta1"
 	xfnaws "github.com/giantswarm/xfnlib/pkg/auth/aws"
 )
 
@@ -84,34 +86,35 @@ var (
 	}
 )
 
-func (f *Function) ReadVpc(vpcName, region, providerConfig *string) (vpc xfnd.Vpc, err error) {
+// func (f *Function) ReadVpc(vpcName, region, groupTag, providerConfig *string) (vpc xfnd.Vpc, err error) {
+func (f *Function) ReadVpc(input *inp.RemoteVpc) (vpc xfnd.Vpc, err error) {
 	var (
 		cfg      aws.Config
 		vpcInput *ec2.DescribeVpcsInput = &ec2.DescribeVpcsInput{
 			Filters: []ec2types.Filter{
 				{
 					Name:   aws.String("tag:Name"),
-					Values: []string{*vpcName},
+					Values: []string{input.Name},
 				},
 			},
 		}
 		ec2client AwsEc2Api
 	)
 
-	f.log.Info("Reading VPC", "vpc", *vpcName, "region", *region, "providerConfig", *providerConfig)
+	f.log.Info("Reading VPC", "vpc", input.Name, "region", input.Region, "providerConfig", input.ProviderConfigRef, "groupBy", input.GroupBy)
 	// Set up the aws client config
-	if cfg, err = awsConfig(region, providerConfig, f.log); err != nil {
+	if cfg, err = awsConfig(&input.Region, &input.ProviderConfigRef, f.log); err != nil {
 		err = errors.Wrap(err, "failed to load aws config")
 		return
 	}
 
 	f.log.Info("setting up ec2 client")
 	ec2client = getEc2Client(cfg)
-	vpc, err = f.getVpc(ec2client, vpcInput)
+	vpc, err = f.getVpc(ec2client, vpcInput, &input.GroupBy)
 	return
 }
 
-func (f *Function) getVpc(client AwsEc2Api, input *ec2.DescribeVpcsInput) (v xfnd.Vpc, err error) {
+func (f *Function) getVpc(client AwsEc2Api, input *ec2.DescribeVpcsInput, groupTag *string) (v xfnd.Vpc, err error) {
 	var (
 		vpcOutput   *ec2.DescribeVpcsOutput
 		subnetInput *ec2.DescribeSubnetsInput
@@ -138,25 +141,47 @@ func (f *Function) getVpc(client AwsEc2Api, input *ec2.DescribeVpcsInput) (v xfn
 	}
 
 	var subnets map[string]xfnd.Subnet
+	var count int
 	{
-		subnets, err = f.getSubnets(client, subnetInput)
+		count, subnets, err = f.getSubnets(client, subnetInput, groupTag)
 		if err != nil {
 			return
 		}
 	}
 
 	var (
-		publicSubnets  map[string]string = make(map[string]string)
-		privateSubnets map[string]string = make(map[string]string)
-		natGateways    map[string]string = make(map[string]string)
-		igw            string
+		publicSubnets         []xfnd.StatusSubnets     = make([]xfnd.StatusSubnets, count)
+		privateSubnets        []xfnd.StatusSubnets     = make([]xfnd.StatusSubnets, count)
+		publicRouteTables     []xfnd.StatusRouteTables = make([]xfnd.StatusRouteTables, count)
+		privateRouteTables    []xfnd.StatusRouteTables = make([]xfnd.StatusRouteTables, count)
+		natGateways           map[string]string        = make(map[string]string, count)
+		transitGateways       map[string]string        = make(map[string]string, count)
+		vpcPeeringConnections map[string]string        = make(map[string]string, count)
+		igw                   string
 	)
 	{
 		for n, sn := range subnets {
+			var g int = sn.SubnetSet
+			if publicSubnets[g] == nil {
+				publicSubnets[g] = make(map[string]string)
+			}
+
+			if privateSubnets[g] == nil {
+				privateSubnets[g] = make(map[string]string)
+			}
+
+			if publicRouteTables[g] == nil {
+				publicRouteTables[g] = make(map[string]string)
+			}
+
+			if privateRouteTables[g] == nil {
+				privateRouteTables[g] = make(map[string]string)
+			}
+
 			if sn.IsPublic {
-				publicSubnets[n] = sn.ID
+				publicSubnets[g][n] = sn.ID
 			} else {
-				privateSubnets[n] = sn.ID
+				privateSubnets[g][n] = sn.ID
 			}
 
 			if sn.InternetGateway != "" {
@@ -167,6 +192,28 @@ func (f *Function) getVpc(client AwsEc2Api, input *ec2.DescribeVpcsInput) (v xfn
 				for nat, natgw := range sn.NatGateways {
 					f.log.Info("Processing NAT Gateway", "nat", nat, "natgw", natgw)
 					natGateways[nat] = natgw
+				}
+			}
+
+			if sn.TransitGateways != nil {
+				for tgw, tgwgw := range sn.TransitGateways {
+					f.log.Info("Processing Transit Gateway", "tgw", tgw, "tgwgw", tgwgw)
+					transitGateways[tgw] = tgwgw
+				}
+			}
+
+			if sn.VpcPeeringConnections != nil {
+				for vp, peering := range sn.VpcPeeringConnections {
+					f.log.Info("Processing VPC Peering Connection", "vp", vp, "peering", peering)
+					vpcPeeringConnections[vp] = peering
+				}
+			}
+
+			for n, rt := range sn.RouteTables {
+				if rt.IsPublic {
+					publicRouteTables[g][n] = rt.ID
+				} else {
+					privateRouteTables[g][n] = rt.ID
 				}
 			}
 		}
@@ -180,37 +227,32 @@ func (f *Function) getVpc(client AwsEc2Api, input *ec2.DescribeVpcsInput) (v xfn
 		}
 	}
 
-	var (
-		publicRouteTables  map[string]string = make(map[string]string)
-		privateRouteTables map[string]string = make(map[string]string)
-	)
+	var additionalCidrBlocks []string
 	{
-		for _, sn := range subnets {
-			for n, rt := range sn.RouteTables {
-				if rt.IsPublic {
-					publicRouteTables[n] = rt.ID
-				} else {
-					privateRouteTables[n] = rt.ID
-				}
-			}
+		for _, cidr := range vpcOutput.Vpcs[0].CidrBlockAssociationSet {
+			additionalCidrBlocks = append(additionalCidrBlocks, *cidr.CidrBlock)
 		}
 	}
 
 	v = xfnd.Vpc{
-		ID:                 *vpcOutput.Vpcs[0].VpcId,
-		CidrBlock:          *vpcOutput.Vpcs[0].CidrBlock,
-		PublicSubnets:      []xfnd.StatusSubnets{publicSubnets},
-		PrivateSubnets:     []xfnd.StatusSubnets{privateSubnets},
-		PublicRouteTables:  []xfnd.StatusRouteTables{publicRouteTables},
-		PrivateRouteTables: []xfnd.StatusRouteTables{privateRouteTables},
-		InternetGateway:    igw,
-		NatGateways:        natGateways,
-		SecurityGroups:     securitygroups,
+		AdditionalCidrBlocks:  additionalCidrBlocks,
+		CidrBlock:             *vpcOutput.Vpcs[0].CidrBlock,
+		ID:                    *vpcOutput.Vpcs[0].VpcId,
+		PublicSubnets:         publicSubnets,
+		PrivateSubnets:        privateSubnets,
+		PublicRouteTables:     publicRouteTables,
+		PrivateRouteTables:    privateRouteTables,
+		InternetGateway:       igw,
+		NatGateways:           natGateways,
+		SecurityGroups:        securitygroups,
+		TransitGateways:       transitGateways,
+		VpcPeeringConnections: vpcPeeringConnections,
 	}
+
 	return v, nil
 }
 
-func (f *Function) getSubnets(client AwsEc2Api, input *ec2.DescribeSubnetsInput) (subnets map[string]xfnd.Subnet, err error) {
+func (f *Function) getSubnets(client AwsEc2Api, input *ec2.DescribeSubnetsInput, groupTag *string) (count int, subnets map[string]xfnd.Subnet, err error) {
 	f.log.Info("Getting subnets")
 	subnets = make(map[string]xfnd.Subnet)
 
@@ -222,13 +264,25 @@ func (f *Function) getSubnets(client AwsEc2Api, input *ec2.DescribeSubnetsInput)
 		}
 	}
 
+	var groups map[int]bool = make(map[int]bool)
+
 	for _, sn := range subnetOutput.Subnets {
 		var name string
+		var subnetSet int = 0
+
 		{
 			for _, tag := range sn.Tags {
 				if *tag.Key == "Name" {
 					name = *tag.Value
 				}
+
+				if *tag.Key == *groupTag {
+					if i, e := strconv.Atoi(*tag.Value); e == nil {
+						subnetSet = i
+						groups[i] = true
+					}
+				}
+
 			}
 		}
 
@@ -240,7 +294,9 @@ func (f *Function) getSubnets(client AwsEc2Api, input *ec2.DescribeSubnetsInput)
 			IsPublic:            false,
 			IsIpv6:              false,
 			MapPublicIPOnLaunch: sn.MapPublicIpOnLaunch,
+			SubnetSet:           subnetSet,
 		}
+
 		s.RouteTables = make(map[string]xfnd.RouteTable)
 		s.NatGateways = make(map[string]string)
 		s.TransitGateways = make(map[string]string)
@@ -264,7 +320,7 @@ func (f *Function) getSubnets(client AwsEc2Api, input *ec2.DescribeSubnetsInput)
 
 		if len(routeTables.RouteTables) == 0 {
 			f.log.Info("No route tables found for subnet", "sn", *sn.SubnetId)
-			return nil, errors.New("No route tables found for subnet")
+			return 0, nil, errors.New("No route tables found for subnet")
 		}
 
 		for _, rt := range routeTables.RouteTables {
@@ -278,10 +334,11 @@ func (f *Function) getSubnets(client AwsEc2Api, input *ec2.DescribeSubnetsInput)
 						rtblName = *tag.Value
 					}
 				}
+
 				f.log.Info("Processing route table", "rt", *rt.RouteTableId, "name", rtblName)
 				if len(rt.Routes) == 0 {
 					f.log.Info("No routes found for route table", "rt", *rt.RouteTableId)
-					return nil, errors.New("No routes found for route table")
+					return 0, nil, errors.New("No routes found for route table")
 				}
 
 				for _, assoc := range rt.Associations {
@@ -311,27 +368,36 @@ func (f *Function) getSubnets(client AwsEc2Api, input *ec2.DescribeSubnetsInput)
 						var ngwname string
 						ngwname, err = f.getNatGateway(client, *r.NatGatewayId)
 						if err != nil {
-							return
+							f.log.Info("Error getting NAT Gateway - skipping", "error", err)
 						}
-						s.NatGateways[ngwname] = *r.NatGatewayId
+						if ngwname != "" {
+							s.NatGateways[ngwname] = *r.NatGatewayId
+						}
 					}
 
 					if r.TransitGatewayId != nil {
 						var tgwname string
 						tgwname, err = f.getTransitGateway(client, *r.TransitGatewayId)
 						if err != nil {
-							return
+							f.log.Info("Error getting Transit Gateway - skipping", "error", err)
 						}
-						s.TransitGateways[tgwname] = *r.TransitGatewayId
+						if tgwname != "" {
+							s.TransitGateways[tgwname] = *r.TransitGatewayId
+						}
+
 					}
 
 					if r.VpcPeeringConnectionId != nil {
 						var pcname string
 						pcname, err = f.getVpcPeeringConnection(client, *r.VpcPeeringConnectionId)
 						if err != nil {
-							return
+							f.log.Info("Error getting VPC Peering Connection - skipping", "error", err)
 						}
-						s.VpcPeeringConnections[pcname] = *r.VpcPeeringConnectionId
+
+						if pcname != "" {
+							s.VpcPeeringConnections[pcname] = *r.VpcPeeringConnectionId
+						}
+
 					}
 				}
 			}
@@ -340,13 +406,19 @@ func (f *Function) getSubnets(client AwsEc2Api, input *ec2.DescribeSubnetsInput)
 				ID:           *rt.RouteTableId,
 				Associations: associations,
 				IsPublic:     s.IsPublic,
+				SubnetSet:    subnetSet,
 			}
 			rtbl.Routes = make(map[string]xfnd.Route)
 			s.RouteTables[rtblName] = rtbl
 		}
 		subnets[name] = s
 	}
-	return subnets, nil
+
+	for range groups {
+		count++
+	}
+
+	return count, subnets, nil
 }
 
 func (f *Function) getNatGateway(client AwsEc2Api, ngwId string) (name string, err error) {

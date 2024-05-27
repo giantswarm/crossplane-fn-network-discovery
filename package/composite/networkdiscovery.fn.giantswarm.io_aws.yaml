@@ -42,6 +42,13 @@ spec:
             additionalProperties:
               description: Vpc holds VPC information
               properties:
+                additionalCidrBlocks:
+                  description: A list of additional VPC CIDR blocks defined in this
+                    VPC
+                  items:
+                    type: string
+                  type: array
+                  x-kubernetes-list-type: atomic
                 cidrBlock:
                   description: The Ipv4 cidr block defined for this VPC
                   type: string
@@ -78,6 +85,9 @@ spec:
                     x-kubernetes-map-type: atomic
                   type: array
                   x-kubernetes-list-type: atomic
+                providerConfig:
+                  description: The provider config used to look up this VPC
+                  type: string
                 publicRouteTables:
                   description: A map of public route tables defined in this VPC
                   items:
@@ -99,6 +109,9 @@ spec:
                     x-kubernetes-map-type: atomic
                   type: array
                   x-kubernetes-list-type: atomic
+                region:
+                  description: The region this VPC is located in
+                  type: string
                 securityGroups:
                   additionalProperties:
                     type: string

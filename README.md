@@ -1,12 +1,23 @@
-# function-generate-subnets
+# function-network-discovery
 
-A [Crossplane] Composition Function which will generate an ObserveOnly subnet
-object for each subnet ID found in an EKS cluster resource, then patch specific
-information from those objects to a field on the composite resource.
+A [Crossplane] Composition Function for discovery of VPC architecture
 
-In order to use this function as part of the [Composition], the composition
-must be written to use pipeline mode. See the documentation on 
-[Composition functions] to better understand how this is integrated
+Provide this function with a VPC name, region and provider configuration to use
+and it will discover components of the VPC including:
+
+- VPC ID
+- CIDR Block
+- Additional CIDRS
+- Subnets
+- Route Tables
+- Internet Gateway
+- NAT Gateways
+- VPC Peering connections
+- Transit gateways
+- Security groups
+
+This information will then be patched to the status of the XR. To understand the
+structure required for the XR status, see [package/composite](./package/composite/)
 
 ## Composition integration
 
@@ -14,187 +25,92 @@ This function is placed in the pipeline with a reference to the cluster object
 for that composition and an additional reference of where to patch information
 about the subnets it is generating for that provider.
 
-This should be specified in your composition as:
+This should be specified in your composition, for example
 
 ```yaml
-  - step: generate-subnets
+  - step: network-discovery
     functionRef:
-      name: function-generate-subnets
+      name: function-network-discovery
     input:
-      apiVersion: generatesubnets.fn.giantswarm.io
-      kind: Subnet
+      apiVersion: nd.fn.giantswarm.io
+      kind: Input
       metadata:
         namespace: crossplane
       spec:
-        clusterRef: eks-cluster
-        patchTo: status.subnets
+        vpcNameRef: spec.vpcs
+        regionRef: spec.region
+        providerConfigRef: spec.providerConfigRef.name
+        patchTo: status.vpcs
 ```
 
-The function requires information from the XR and is opinionated about how that
-information should be presented.
+## Input parameters
 
-In order to support the integration of this function into your pipelines,
-details about the XR requirements are published in [definition_xrs.yaml].
+- `enabledRef` **optional** Reference to a boolean parameter that optionally
+  tells the function to skip discovery. Use this in complex composition
+  structures where discovery may or may not be required.
+- `providerConfigRef` **required** A reference to an AWS providerConfig
+- `regionRef` **required** The default region being used by the XR
+- `vpcNameRef` **required** a path to a location on the XR containing the name
+  of one or more VPCs. The referenced location may be a single string or a list
+  of objects
+- `groupingTagRef` **optional** If specified, the location of the reference
+  will be used as a tag filter for grouping subnets and route tables together
 
-The relevant sections of this XR specification should be extracted and merged
-into the definition you are writing. The specification cannot be used 
-independantly as an XRD as it does not define all the required elements of an 
-XRD, just the custom fields required by this function.
+### vpcNameRef
 
-## How it works
+If the location pointed to by `vpcNameRef` is a list, it must match the
+following format:
 
-This function reads the subnet IDs from a cluster object relevant to the cloud
-provider.
+- `name` **required** The name of the VPC to discover
+- `region` **optional** The region to discover the VPC in - if not defined falls
+  back to the default region specified above
+- `providerConfigRef` **optional** A provider config reference to use for
+  discovery of this specific VPC. Useful for cross account VPC discovery
 
-> For each integrated type, only the official upbound providers are supported.
+### groupingTagRef
 
-It then uses the subnet IDs to generate one `Subnet` object for each subnet in
-the list and adds these to the set of desired composed objects and allows them
-to reconcile.
+The location for `groupingTagRef` should match the following format:
 
-Once reconciliation is complete, the function collects information from the
-`status.atProvider` for each subnet and compiles this into a list of objects
-which is then applied to the status field of the XR.
+- `key` string the key for the tag
 
-As part of the reconciliation, the function calls out to the cloud provider to
-retrieve additional information such as whether the subnet has an internet
-gateway attached which the function uses to determine whether the subnet is
-public or private.
-
-### Providers currently supported by this function
-
-- EKS cluster `clusters.eks.upbound.io`
-
-### Example status patch output
-
-<details>
-
-<summary>status.aws.subnets</summary>
+The value of the tag key on the AWS resource should be numeric. If it is not it
+is ignored.
 
 ```yaml
-    subnets:
-    - availabilityZone: eu-central-1c
-      cidrBlock: 192.168.128.0/19
-      id: subnet-11111111111111111
-      ipv6CidrBlock: ""
-      isIpV6: false
-      isPublic: false
-      tags: {}
-    - availabilityZone: eu-central-1b
-      cidrBlock: 192.168.64.0/19
-      id: subnet-22222222222222222
-      ipv6CidrBlock: ""
-      isIpV6: false
-      isPublic: true
-      tags: {}
-    - availabilityZone: eu-central-1b
-      cidrBlock: 192.168.160.0/19
-      id: subnet-33333333333333333
-      ipv6CidrBlock: ""
-      isIpV6: false
-      isPublic: false
-      tags: {}
-    - availabilityZone: eu-central-1a
-      cidrBlock: 192.168.96.0/19
-      id: subnet-44444444444444444
-      ipv6CidrBlock: ""
-      isIpV6: false
-      isPublic: false
-      tags: {}
-    - availabilityZone: eu-central-1c
-      cidrBlock: 192.168.32.0/19
-      id: subnet-555555555555555555
-      ipv6CidrBlock: ""
-      isIpV6: false
-      isPublic: true
-      tags: {}
-    - availabilityZone: eu-central-1a
-      cidrBlock: 192.168.0.0/19
-      id: subnet-6666666666666666666
-      ipv6CidrBlock: ""
-      isIpV6: false
-      isPublic: true
-      tags: {}
+tags:
+  subnetsets.xnetworks.crossplane.giantswarm.io: 1
 ```
 
-</details>
+> [!NOTE]
+> This is **not** an AWS tag filter. It is used to group the output of subnets
+> and route tables into sets were defined together. If not defined, a single
+> list will be output
+>
+> eg.
+>
+> ```yaml
+> subnets:
+> - subnet-1: sn-123456
+>   subnet-2: sn-234567
+>   ...
+>   subnet-10: sn-012345
+> ```
+>
+> If defined, this would otherwise result in the following:
+>
+> ```yaml
+> subnets:
+> - subnet-1: sn-123456
+>   subnet-2: sn-234567
+>   subnet-3: sn-345678
+> - subnet-4: sn-456789
+>   subnet-5: sn-567890
+>   subnet-6: sn-678901
+> ```
 
-## Installing
+For information such as transit gateways, nat gateways and peering connections
+a unique name tag is expected to prevent resources overwriting each other.
 
-```yaml
-apiVersion: pkg.crossplane.io/v1beta1
-kind: Function
-metadata:
-  name: function-generate-subnets
-spec:
-  package: docker.io/giantswarm/crossplane-fn-generate-subnets:v0.1.0
-```
-
-## Building
-
-```shell
-# Run code generation - see input/generate.go
-$ go generate ./...
-
-# Lint the code
-$ docker run --rm -v $(pwd):/app -v ~/.cache/golangci-lint/v1.54.2:/root/.cache -w /app golangci/golangci-lint:v1.54.2 golangci-lint run
-
-$ go test ./... -coverprofile=cover.out && go tool cover -html=cover.out
-?       github.com/giantswarm/crossplane-fn-generate-subnets/pkg/composite/v1beta1      [no test files]
-?       github.com/giantswarm/crossplane-fn-generate-subnets/pkg/input/v1beta1  [no test files]
-ok      github.com/giantswarm/crossplane-fn-generate-subnets    0.022s  coverage: 72.0% of statements
-
-# Build a Docker image - see Dockerfile
-$ docker buildx build .
-```
-
-## Testing locally
-
-To test this application locally you need to first install [crossplane-cli].
-
-The main function contains a "fake client" to bypass the calls to AWS.
-
-To enable this, use the flag `-f`
-
-For debug logs, use the flag `-d`
-
-All local testing must run in `insecure` mode.
-
-```bash
-go run . --insecure -df
-```
-
-Next, in a second window run:
-
-```bash
-crossplane beta render examples/xr.yaml examples/composition.yaml examples/functions.yaml -o examples/observed.yaml
-```
-
-To support different scenarios, different observed states have been created:
-
-- `notreconciled.yaml` contains the cluster in an unreconciled state
-
-  ```bash
-  crossplane beta render examples/xr.yaml examples/composition.yaml examples/functions.yaml -o examples/notreconciled.yaml
-  ```
-
-- `partial-observed.yaml` returns the subnets without the `atProvider` reference defined
-
-  ```bash
-  crossplane beta render examples/xr.yaml examples/composition.yaml examples/functions.yaml -o examples/partial-observed.yaml
-  ```
-
-## Known Issues
-
-When applying the patch if the specification of the status patch in your XRD 
-does not match the definition in [definition_xrs.yaml]
-then it is possible to invoke a situation whereby resources in the composition
-do not become ready. See [Crossplane issue 4968] for details on how this may occur
-
-[definition_xrs.yaml]: ./package/composite/definition_xrobjectdefinitions.yaml
-[Crossplane]: https://crossplane.io
-[crossplane-cli]: https://github.com/crossplane/crossplane/releases/tag/v1.14.0-rc.1
-[Composition]: https://docs.crossplane.io/v1.13/concepts/compositions
-[Composition functions]: https://docs.crossplane.io/latest/concepts/compositions/#use-composition-functions
-[RunFunctionRequest]: https://github.com/crossplane/function-sdk-go/blob/a4ada4f934f6f8d3f9018581199c6c71e0343d13/proto/v1beta1/run_function.proto#L36
-[Crossplane issue 4968]: https://github.com/crossplane/crossplane/issues/4968
+If a name tag cannot be found, the ID will not be returned for that item so if
+you are expecting an id to be returned when it isn't appearing in the status,
+check that a unique name tag is assigned to the resource in AWS.

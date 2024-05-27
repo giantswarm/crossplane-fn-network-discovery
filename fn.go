@@ -26,7 +26,7 @@ func (f *Function) RunFunction(_ context.Context, req *fnv1beta1.RunFunctionRequ
 		composed       *composite.Composition
 		input          inp.Input
 		vpcs           map[string]fnc.Vpc = make(map[string]fnc.Vpc)
-		names          []string
+		search         []inp.RemoteVpc
 		region         string
 		providerConfig string
 	)
@@ -48,12 +48,17 @@ func (f *Function) RunFunction(_ context.Context, req *fnv1beta1.RunFunctionRequ
 		return rsp, nil
 	}
 
-	if err = f.getStringArrayFromPaved(oxr.Resource, input.Spec.VpcNameRef, &names); err != nil {
-		f.log.Info("cannot get VPC name from input", "error", err)
-		response.Fatal(rsp, errors.Wrap(err, "cannot get VPC name from input"))
+	enabled, err := f.getBooleanFromPaved(oxr.Resource, input.Spec.EnabledRef)
+	if err != nil {
+		f.log.Info("cannot get enabled state from input", "error", err)
+		response.Fatal(rsp, errors.Wrap(err, "cannot get enabled state from input"))
 		return rsp, nil
 	}
-	f.log.Info("VPC names", "names", names)
+
+	if !enabled {
+		f.log.Info("Function is disabled for composition")
+		return rsp, nil
+	}
 
 	if err = f.getStringFromPaved(oxr.Resource, input.Spec.RegionRef, &region); err != nil {
 		f.log.Info("cannot get region from input", "error", err)
@@ -62,6 +67,9 @@ func (f *Function) RunFunction(_ context.Context, req *fnv1beta1.RunFunctionRequ
 	}
 	f.log.Info("Region", "region", region)
 
+	var groupTag string
+	_ = f.getStringFromPaved(oxr.Resource, input.Spec.GroupByRef, &groupTag)
+
 	if err = f.getStringFromPaved(oxr.Resource, input.Spec.ProviderConfigRef, &providerConfig); err != nil {
 		f.log.Info("cannot get provider config from input", "error", err)
 		response.Fatal(rsp, errors.Wrap(err, "cannot get provider config from input"))
@@ -69,14 +77,24 @@ func (f *Function) RunFunction(_ context.Context, req *fnv1beta1.RunFunctionRequ
 	}
 	f.log.Info("ProviderConfig", "pc", providerConfig)
 
-	for _, n := range names {
+	if err = f.getValueInto(oxr.Resource, input.Spec.VpcNameRef, region, providerConfig, groupTag, &search); err != nil {
+		f.log.Info("cannot get VPC name from input", "error", err)
+		response.Fatal(rsp, errors.Wrap(err, "cannot get VPC name from input"))
+		return rsp, nil
+	}
+
+	for _, n := range search {
 		var vpc fnc.Vpc
-		if vpc, err = f.ReadVpc(&n, &region, &providerConfig); err != nil {
+		if vpc, err = f.ReadVpc(&n); err != nil {
 			f.log.Info("cannot read VPC", "error", err)
 			response.Fatal(rsp, errors.Wrap(err, "cannot read VPC"))
 			return rsp, nil
 		}
-		vpcs[n] = vpc
+
+		// Copy the provider config from the search input so the composition
+		// doesn't have to re-match it on cross-account lookups.
+		vpc.ProviderConfig = n.ProviderConfigRef
+		vpcs[n.Name] = vpc
 	}
 	f.log.Info("VPCs", "vpcs", vpcs)
 
@@ -95,8 +113,8 @@ func (f *Function) RunFunction(_ context.Context, req *fnv1beta1.RunFunctionRequ
 	return rsp, nil
 }
 
-// get string array from paved
-func (f *Function) getStringArrayFromPaved(req runtime.Object, ref string, value *[]string) (err error) {
+// get array from paved
+func (f *Function) getValueInto(req runtime.Object, ref, region, providerConfig, groupBy string, value *[]inp.RemoteVpc) (err error) {
 	var paved *fieldpath.Paved
 	if paved, err = fieldpath.PaveObject(req); err != nil {
 		return
@@ -104,10 +122,28 @@ func (f *Function) getStringArrayFromPaved(req runtime.Object, ref string, value
 
 	var s string
 	if s, err = paved.GetString(ref); err != nil {
-		*value, err = paved.GetStringArray(ref)
+		err = paved.GetValueInto(ref, value)
+		for i := range *value {
+			if (*value)[i].Region == "" {
+				(*value)[i].Region = region
+			}
+			if (*value)[i].ProviderConfigRef == "" {
+				(*value)[i].ProviderConfigRef = providerConfig
+			}
+			if (*value)[i].GroupBy == "" {
+				(*value)[i].GroupBy = groupBy
+			}
+		}
 		return
 	}
-	*value = []string{s}
+	*value = []inp.RemoteVpc{
+		{
+			GroupBy:           groupBy,
+			Name:              s,
+			Region:            region,
+			ProviderConfigRef: providerConfig,
+		},
+	}
 	return
 }
 
@@ -119,6 +155,17 @@ func (f *Function) getStringFromPaved(req runtime.Object, ref string, value *str
 	}
 
 	*value, err = paved.GetString(ref)
+	return
+}
+
+// get boolean from paved
+func (f *Function) getBooleanFromPaved(req runtime.Object, ref string) (value bool, err error) {
+	var paved *fieldpath.Paved
+	if paved, err = fieldpath.PaveObject(req); err != nil {
+		return
+	}
+
+	value, err = paved.GetBool(ref)
 	return
 }
 

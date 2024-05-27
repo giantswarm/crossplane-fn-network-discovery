@@ -41,6 +41,17 @@ spec:
           spec:
             description: Defines the spec for this input
             properties:
+              enabledRef:
+                description: |-
+                  EnabledRef A path to a field on the claim that determines if this function
+                  is enabled in the current composition allowing for conditional execution
+                  of the function in complex compositions
+                type: string
+              groupByRef:
+                description: |-
+                  GroupByRef A path to the field on the claim that determines the grouping
+                  of the subnets and route tables in the VPC
+                type: string
               patchTo:
                 description: PatchTo specified the path to apply the VPC map
                 type: string
@@ -54,6 +65,7 @@ spec:
                 description: VpcName A path to the VPC name in the Claim
                 type: string
             required:
+            - groupByRef
             - patchTo
             - providerConfigRef
             - regionRef
