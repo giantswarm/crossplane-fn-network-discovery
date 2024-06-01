@@ -11,10 +11,13 @@ import (
 	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
 	"github.com/crossplane/crossplane-runtime/pkg/logging"
+	xfnaws "github.com/giantswarm/xfnlib/pkg/auth/aws"
+
 	xfnd "github.com/giantswarm/crossplane-fn-network-discovery/pkg/composite/v1beta1"
 	inp "github.com/giantswarm/crossplane-fn-network-discovery/pkg/input/v1beta1"
-	xfnaws "github.com/giantswarm/xfnlib/pkg/auth/aws"
 )
+
+const nametag = "Name"
 
 // EC2API Describes the functions required to access data on the AWS EC2 api
 type AwsEc2Api interface {
@@ -272,7 +275,7 @@ func (f *Function) getSubnets(client AwsEc2Api, input *ec2.DescribeSubnetsInput,
 
 		{
 			for _, tag := range sn.Tags {
-				if *tag.Key == "Name" {
+				if *tag.Key == nametag {
 					name = *tag.Value
 				}
 
@@ -330,7 +333,7 @@ func (f *Function) getSubnets(client AwsEc2Api, input *ec2.DescribeSubnetsInput,
 			)
 			{
 				for _, tag := range rt.Tags {
-					if *tag.Key == "Name" {
+					if *tag.Key == nametag {
 						rtblName = *tag.Value
 					}
 				}
@@ -432,7 +435,7 @@ func (f *Function) getNatGateway(client AwsEc2Api, ngwId string) (name string, e
 
 	for _, n := range ngw.NatGateways {
 		for _, tag := range n.Tags {
-			if *tag.Key == "Name" {
+			if *tag.Key == nametag {
 				name = *tag.Value
 			}
 		}
@@ -451,7 +454,7 @@ func (f *Function) getTransitGateway(client AwsEc2Api, tgwId string) (name strin
 
 	for _, n := range tgw.TransitGateways {
 		for _, tag := range n.Tags {
-			if *tag.Key == "Name" {
+			if *tag.Key == nametag {
 				name = *tag.Value
 			}
 		}
@@ -470,7 +473,7 @@ func (f *Function) getVpcPeeringConnection(client AwsEc2Api, pcId string) (name 
 
 	for _, n := range pc.VpcPeeringConnections {
 		for _, tag := range n.Tags {
-			if *tag.Key == "Name" {
+			if *tag.Key == nametag {
 				name = *tag.Value
 			}
 		}
