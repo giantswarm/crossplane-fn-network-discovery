@@ -11,9 +11,10 @@ import (
 	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
 	"github.com/crossplane/crossplane-runtime/pkg/logging"
+	xfnaws "github.com/giantswarm/xfnlib/pkg/auth/aws"
+
 	xfnd "github.com/giantswarm/crossplane-fn-network-discovery/pkg/composite/v1beta1"
 	inp "github.com/giantswarm/crossplane-fn-network-discovery/pkg/input/v1beta1"
-	xfnaws "github.com/giantswarm/xfnlib/pkg/auth/aws"
 )
 
 // EC2API Describes the functions required to access data on the AWS EC2 api
