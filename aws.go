@@ -268,6 +268,7 @@ func (f *Function) getSubnets(client AwsEc2Api, input *ec2.DescribeSubnetsInput,
 	}
 
 	var groups map[int]bool = make(map[int]bool)
+	groups[0] = true
 
 	for _, sn := range subnetOutput.Subnets {
 		var name string
@@ -417,8 +418,10 @@ func (f *Function) getSubnets(client AwsEc2Api, input *ec2.DescribeSubnetsInput,
 		subnets[name] = s
 	}
 
-	for range groups {
-		count++
+	for _, g := range groups {
+		if g {
+			count++
+		}
 	}
 
 	return count, subnets, nil
