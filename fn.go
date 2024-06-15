@@ -87,9 +87,8 @@ func (f *Function) RunFunction(_ context.Context, req *fnv1beta1.RunFunctionRequ
 		var vpc fnc.Vpc
 		n := n
 		if vpc, err = f.ReadVpc(&n); err != nil {
-			f.log.Info("cannot read VPC", "error", err)
-			response.Fatal(rsp, errors.Wrap(err, "cannot read VPC"))
-			return rsp, nil
+			f.log.Info("cannot read VPC", "error", err, "name", n.Name)
+			continue
 		}
 
 		// Copy the provider config from the search input so the composition

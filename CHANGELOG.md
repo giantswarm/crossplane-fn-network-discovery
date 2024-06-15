@@ -7,7 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.1.0] - 2024-06-01
+## [0.2.0] - 2024-06-15
+
+- Fix minor issues with grouping when no groups specified
 
 ## [0.0.1] - 2024-06-01
 
@@ -15,5 +17,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Initial release of function-network-discovery
 
-[Unreleased]: https://github.com/giantswarm/crossplane-fn-network-discovery/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/giantswarm/crossplane-fn-network-discovery/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/giantswarm/crossplane-fn-network-discovery/releases/tag/v0.2.0
 [0.1.0]: https://github.com/giantswarm/crossplane-fn-network-discovery/releases/tag/v0.1.0
