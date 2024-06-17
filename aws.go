@@ -233,7 +233,9 @@ func (f *Function) getVpc(client AwsEc2Api, input *ec2.DescribeVpcsInput, groupT
 	var additionalCidrBlocks []string
 	{
 		for _, cidr := range vpcOutput.Vpcs[0].CidrBlockAssociationSet {
-			additionalCidrBlocks = append(additionalCidrBlocks, *cidr.CidrBlock)
+			if *cidr.CidrBlock != *vpcOutput.Vpcs[0].CidrBlock {
+				additionalCidrBlocks = append(additionalCidrBlocks, *cidr.CidrBlock)
+			}
 		}
 	}
 
