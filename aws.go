@@ -241,10 +241,10 @@ func (f *Function) getVpc(client AwsEc2Api, input *ec2.DescribeVpcsInput, groupT
 		AdditionalCidrBlocks:  additionalCidrBlocks,
 		CidrBlock:             *vpcOutput.Vpcs[0].CidrBlock,
 		ID:                    *vpcOutput.Vpcs[0].VpcId,
-		PublicSubnets:         publicSubnets,
-		PrivateSubnets:        privateSubnets,
-		PublicRouteTables:     publicRouteTables,
-		PrivateRouteTables:    privateRouteTables,
+		PublicSubnets:         resize(publicSubnets),
+		PrivateSubnets:        resize(privateSubnets),
+		PublicRouteTables:     resize(publicRouteTables),
+		PrivateRouteTables:    resize(privateRouteTables),
 		InternetGateway:       igw,
 		NatGateways:           natGateways,
 		SecurityGroups:        securitygroups,
@@ -253,6 +253,29 @@ func (f *Function) getVpc(client AwsEc2Api, input *ec2.DescribeVpcsInput, groupT
 	}
 
 	return v, nil
+}
+
+func resize[T []xfnd.StatusSubnets | []xfnd.StatusRouteTables](s T) T {
+	var (
+		max int
+	)
+	switch v := any(s).(type) {
+	case []xfnd.StatusSubnets:
+		for _, sn := range v {
+			if len(sn) > 0 {
+				max++
+			}
+		}
+		s = any(v[:max]).(T)
+	case []xfnd.StatusRouteTables:
+		for _, rt := range v {
+			if len(rt) > 0 {
+				max++
+			}
+		}
+		s = any(v[:max]).(T)
+	}
+	return s
 }
 
 func (f *Function) getSubnets(client AwsEc2Api, input *ec2.DescribeSubnetsInput, groupTag *string) (count int, subnets map[string]xfnd.Subnet, err error) {

@@ -28,8 +28,8 @@ type RemoteVpc struct {
 	// The VPC name
 	Name string `json:"name"`
 
-	// GroupByRef A path to the field on the claim that determines the grouping
-	// of the subnets and route tables in the VPC
+	// GroupBy is an AWS tag name that is used to group subnet and route table
+	// results into logical "sets" of data
 	GroupBy string `json:"groupBy"`
 
 	// The VPC region
