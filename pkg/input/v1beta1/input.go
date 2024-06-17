@@ -36,7 +36,7 @@ type RemoteVpc struct {
 	Region string `json:"region"`
 
 	// The VPC provider config
-	ProviderConfigRef string `json:"providerConfig"`
+	ProviderConfig string `json:"providerConfig"`
 }
 
 // Spec - Defines the spec given to this input type, providing the required,

@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 - Remove primary cidr block from list of additional cidrs to prevent duplication
+- Fix missing region and provider config
 
 ## [0.2.1] - 2024-06-17
 
