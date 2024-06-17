@@ -91,8 +91,9 @@ func (f *Function) RunFunction(_ context.Context, req *fnv1beta1.RunFunctionRequ
 			continue
 		}
 
-		// Copy the provider config from the search input so the composition
-		// doesn't have to re-match it on cross-account lookups.
+		// Copy the  provider config and region from the search input so the
+		// composition doesn't have to re-match it on cross-account lookups.
+		vpc.Region = n.Region
 		vpc.ProviderConfig = n.ProviderConfigRef
 		vpcs[n.Name] = vpc
 	}
