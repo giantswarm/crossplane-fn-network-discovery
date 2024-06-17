@@ -26,7 +26,7 @@ func (f *Function) RunFunction(_ context.Context, req *fnv1beta1.RunFunctionRequ
 		composed       *composite.Composition
 		input          inp.Input
 		vpcs           map[string]fnc.Vpc = make(map[string]fnc.Vpc)
-		search         []inp.RemoteVpc
+		search         []*inp.RemoteVpc   = make([]*inp.RemoteVpc, 0)
 		region         string
 		providerConfig string
 	)
@@ -77,7 +77,7 @@ func (f *Function) RunFunction(_ context.Context, req *fnv1beta1.RunFunctionRequ
 	}
 	f.log.Info("ProviderConfig", "pc", providerConfig)
 
-	if err = f.getValueInto(oxr.Resource, input.Spec.VpcNameRef, region, providerConfig, groupTag, &search); err != nil {
+	if err = f.getValueInto(oxr.Resource, input.Spec.VpcNameRef, region, providerConfig, groupTag, search); err != nil {
 		f.log.Info("cannot get VPC name from input", "error", err)
 		response.Fatal(rsp, errors.Wrap(err, "cannot get VPC name from input"))
 		return rsp, nil
@@ -85,8 +85,7 @@ func (f *Function) RunFunction(_ context.Context, req *fnv1beta1.RunFunctionRequ
 
 	for _, n := range search {
 		var vpc fnc.Vpc
-		n := n
-		if vpc, err = f.ReadVpc(&n); err != nil {
+		if vpc, err = f.ReadVpc(n); err != nil {
 			f.log.Info("cannot read VPC", "error", err, "name", n.Name)
 			continue
 		}
@@ -94,7 +93,7 @@ func (f *Function) RunFunction(_ context.Context, req *fnv1beta1.RunFunctionRequ
 		// Copy the  provider config and region from the search input so the
 		// composition doesn't have to re-match it on cross-account lookups.
 		vpc.Region = n.Region
-		vpc.ProviderConfig = n.ProviderConfigRef
+		vpc.ProviderConfig = n.ProviderConfig
 		vpcs[n.Name] = vpc
 	}
 	f.log.Info("VPCs", "vpcs", vpcs)
@@ -115,7 +114,7 @@ func (f *Function) RunFunction(_ context.Context, req *fnv1beta1.RunFunctionRequ
 }
 
 // get array from paved
-func (f *Function) getValueInto(req runtime.Object, ref, region, providerConfig, groupBy string, value *[]inp.RemoteVpc) (err error) {
+func (f *Function) getValueInto(req runtime.Object, ref, region, providerConfig, groupBy string, value []*inp.RemoteVpc) (err error) {
 	var paved *fieldpath.Paved
 	if paved, err = fieldpath.PaveObject(req); err != nil {
 		return
@@ -124,27 +123,28 @@ func (f *Function) getValueInto(req runtime.Object, ref, region, providerConfig,
 	var s string
 	if s, err = paved.GetString(ref); err != nil {
 		err = paved.GetValueInto(ref, value)
-		for i := range *value {
-			if (*value)[i].Region == "" {
-				(*value)[i].Region = region
+		for i := range value {
+			if value[i].Region == "" {
+				value[i].Region = region
 			}
-			if (*value)[i].ProviderConfigRef == "" {
-				(*value)[i].ProviderConfigRef = providerConfig
+
+			if value[i].ProviderConfig == "" {
+				value[i].ProviderConfig = providerConfig
 			}
-			if (*value)[i].GroupBy == "" {
-				(*value)[i].GroupBy = groupBy
+
+			if value[i].GroupBy == "" {
+				value[i].GroupBy = groupBy
 			}
 		}
 		return
 	}
-	*value = []inp.RemoteVpc{
-		{
-			GroupBy:           groupBy,
-			Name:              s,
-			Region:            region,
-			ProviderConfigRef: providerConfig,
-		},
+	input := inp.RemoteVpc{
+		GroupBy:        groupBy,
+		Name:           s,
+		Region:         region,
+		ProviderConfig: providerConfig,
 	}
+	_ = append(value, &input)
 	return
 }
 

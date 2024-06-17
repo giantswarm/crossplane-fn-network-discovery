@@ -104,9 +104,9 @@ func (f *Function) ReadVpc(input *inp.RemoteVpc) (vpc xfnd.Vpc, err error) {
 		ec2client AwsEc2Api
 	)
 
-	f.log.Info("Reading VPC", "vpc", input.Name, "region", input.Region, "providerConfig", input.ProviderConfigRef, "groupBy", input.GroupBy)
+	f.log.Info("Reading VPC", "vpc", input.Name, "region", input.Region, "providerConfig", input.ProviderConfig, "groupBy", input.GroupBy)
 	// Set up the aws client config
-	if cfg, err = awsConfig(&input.Region, &input.ProviderConfigRef, f.log); err != nil {
+	if cfg, err = awsConfig(&input.Region, &input.ProviderConfig, f.log); err != nil {
 		err = errors.Wrap(err, "failed to load aws config")
 		return
 	}
