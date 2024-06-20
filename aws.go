@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"log"
 	"strconv"
 	"strings"
 
@@ -77,7 +76,6 @@ func GetVpcPeeringConnections(c context.Context, api AwsEc2Api, input *ec2.Descr
 var (
 	getEc2Client = func(cfg aws.Config, ep string) AwsEc2Api {
 		if ep != "" {
-			log.Printf("Using custom endpoint %s for region %s", ep, cfg.Region)
 			return ec2.NewFromConfig(cfg, func(o *ec2.Options) {
 				o.BaseEndpoint = &ep
 			})
@@ -119,7 +117,7 @@ func (f *Function) ReadVpc(input *inp.RemoteVpc) (vpc xfnd.Vpc, err error) {
 		ep = services["ec2"]
 	}
 
-	f.log.Info("setting up ec2 client to region " + input.Region + " with provider config " + input.ProviderConfig)
+	f.log.Info("setting up ec2 client to region " + input.Region + " with provider config " + input.ProviderConfig + " and endpoint " + ep)
 	ec2client = getEc2Client(cfg, ep)
 	vpc, err = f.getVpc(ec2client, vpcInput, &input.GroupBy)
 	return
