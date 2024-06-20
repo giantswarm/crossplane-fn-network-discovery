@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"log"
 	"strconv"
 	"strings"
 
@@ -74,9 +75,9 @@ func GetVpcPeeringConnections(c context.Context, api AwsEc2Api, input *ec2.Descr
 }
 
 var (
-	getEc2Client = func(cfg aws.Config) AwsEc2Api {
-		var ep string = xfnaws.GetServiceEndpoint("ec2")
+	getEc2Client = func(cfg aws.Config, ep string) AwsEc2Api {
 		if ep != "" {
+			log.Printf("Using custom endpoint %s for region %s", ep, cfg.Region)
 			return ec2.NewFromConfig(cfg, func(o *ec2.Options) {
 				o.BaseEndpoint = &ep
 			})
@@ -84,7 +85,7 @@ var (
 		return ec2.NewFromConfig(cfg)
 	}
 
-	awsConfig = func(region, provider *string, log logging.Logger) (aws.Config, error) {
+	awsConfig = func(region, provider *string, log logging.Logger) (aws.Config, map[string]string, error) {
 		return xfnaws.Config(region, provider, log)
 	}
 )
@@ -93,6 +94,7 @@ var (
 func (f *Function) ReadVpc(input *inp.RemoteVpc) (vpc xfnd.Vpc, err error) {
 	var (
 		cfg      aws.Config
+		services map[string]string
 		vpcInput *ec2.DescribeVpcsInput = &ec2.DescribeVpcsInput{
 			Filters: []ec2types.Filter{
 				{
@@ -106,13 +108,19 @@ func (f *Function) ReadVpc(input *inp.RemoteVpc) (vpc xfnd.Vpc, err error) {
 
 	f.log.Info("Reading VPC", "vpc", input.Name, "region", input.Region, "providerConfig", input.ProviderConfig, "groupBy", input.GroupBy)
 	// Set up the aws client config
-	if cfg, err = awsConfig(&input.Region, &input.ProviderConfig, f.log); err != nil {
-		err = errors.Wrap(err, "failed to load aws config")
+	if cfg, services, err = awsConfig(&input.Region, &input.ProviderConfig, f.log); err != nil {
+		err = errors.Wrap(err, "failed to load aws config with region "+input.Region)
 		return
 	}
 
-	f.log.Info("setting up ec2 client")
-	ec2client = getEc2Client(cfg)
+	var ep string
+	var ok bool
+	if _, ok = services["ec2"]; ok {
+		ep = services["ec2"]
+	}
+
+	f.log.Info("setting up ec2 client to region " + input.Region + " with provider config " + input.ProviderConfig)
+	ec2client = getEc2Client(cfg, ep)
 	vpc, err = f.getVpc(ec2client, vpcInput, &input.GroupBy)
 	return
 }
@@ -230,7 +238,7 @@ func (f *Function) getVpc(client AwsEc2Api, input *ec2.DescribeVpcsInput, groupT
 		}
 	}
 
-	var additionalCidrBlocks []string
+	var additionalCidrBlocks []string = make([]string, 0)
 	{
 		for _, cidr := range vpcOutput.Vpcs[0].CidrBlockAssociationSet {
 			if *cidr.CidrBlock != *vpcOutput.Vpcs[0].CidrBlock {

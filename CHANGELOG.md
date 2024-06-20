@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- handle service endpoints locally
+
 ## [0.2.3] - 2024-06-17
 
 - Fix missing region and provider config
