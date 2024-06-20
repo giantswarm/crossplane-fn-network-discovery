@@ -1,5 +1,5 @@
 # !/bin/bash
-VERSION=v0.0.1-39
+VERSION=v0.0.1-46
 go build . && {
     rm package/*.xpkg
     go generate ./...
