@@ -58,6 +58,15 @@ spec:
               providerConfigRef:
                 description: ProviderConfig A path to the provider config in the Claim
                 type: string
+              providerType:
+                default: aws
+                description: ProviderType dictates what cloud provider the discovery
+                  is working against
+                enum:
+                - aws
+                - azure
+                - gcp
+                type: string
               regionRef:
                 description: Region A path to the region in the Claim
                 type: string
@@ -65,7 +74,6 @@ spec:
                 description: VpcName A path to the VPC name in the Claim
                 type: string
             required:
-            - groupByRef
             - patchTo
             - providerConfigRef
             - regionRef

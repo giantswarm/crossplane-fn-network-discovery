@@ -48,30 +48,35 @@ This should be specified in your composition, for example
 - `enabledRef` **optional** Reference to a boolean parameter that optionally
   tells the function to skip discovery. Use this in complex composition
   structures where discovery may or may not be required.
+- `groupByRef` **optional** If specified, the location of the reference
+  will be used as a tag filter for grouping subnets and route tables together
 - `providerConfigRef` **required** A reference to an AWS providerConfig
 - `regionRef` **required** The default region being used by the XR
 - `vpcNameRef` **required** a path to a location on the XR containing the name
   of one or more VPCs. The referenced location may be a single string or a list
   of objects
-- `groupingTagRef` **optional** If specified, the location of the reference
-  will be used as a tag filter for grouping subnets and route tables together
+- `patchTo` A path to the status of the XR where the discovery details should be
+  written to.
+- `providerType` **optional** One of `AWS`, `Azure`, `GCP`, default `AWS`
+  This value is currently ignored but paves the way for future expansion to
+  cover additional cloud providers
 
 ### vpcNameRef
 
 If the location pointed to by `vpcNameRef` is a list, it must match the
 following format:
 
+- `groupBy` An AWS tag name used to group subnets and route tables together
 - `name` **required** The name of the VPC to discover
 - `region` **optional** The region to discover the VPC in - if not defined falls
   back to the default region specified above
 - `providerConfigRef` **optional** A provider config reference to use for
   discovery of this specific VPC. Useful for cross account VPC discovery
 
-### groupingTagRef
+### groupByRef
 
-The location for `groupingTagRef` should match the following format:
-
-- `key` string the key for the tag
+The location for `groupByRef` should be a string containing a cloud resource tag
+whose value is an integer
 
 The value of the tag key on the AWS resource should be numeric. If it is not it
 is ignored.
