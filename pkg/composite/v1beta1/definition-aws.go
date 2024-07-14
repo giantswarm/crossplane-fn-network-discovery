@@ -19,7 +19,7 @@ type Aws struct {
 
 	// The VPCs defined in this AWS account
 	// +mapType=granular
-	Vpcs map[string]Vpc `json:"vpcs"`
+	Vpcs map[string]AwsVpc `json:"vpcs"`
 }
 
 // StatusSubnets is a map of subnets and their status
@@ -31,7 +31,7 @@ type StatusSubnets map[string]string
 type StatusRouteTables map[string]string
 
 // Vpc holds VPC information
-type Vpc struct {
+type AwsVpc struct {
 	// A list of additional VPC CIDR blocks defined in this VPC
 	// +listType=atomic
 	// +optional
@@ -103,7 +103,7 @@ type Vpc struct {
 
 // AwsSubnet is an object that holds information about a subnet defined in AWS
 // +mapType=granular
-type Subnet struct {
+type AwsSubnet struct {
 	// ID The subnet ID
 	// +kubebuilder:validation:Required
 	ID string `json:"id"`
@@ -135,7 +135,7 @@ type Subnet struct {
 
 	// The route tables associated with this subnet
 	// +mapType=granular
-	RouteTables map[string]RouteTable `json:"routeTables"`
+	RouteTables map[string]AwsRouteTable `json:"routeTables"`
 
 	// The internet gateway associated with this subnet
 	// +optional
@@ -163,11 +163,11 @@ type Subnet struct {
 
 // AwsRouteTable is an object that holds information about a route table defined in AWS
 // +mapType=granular
-type RouteTable struct {
+type AwsRouteTable struct {
 	// The associations defined for this route table
 	// +listType=map
 	// +listMapKey=id
-	Associations []Association `json:"associations"`
+	Associations []AwsAssociation `json:"associations"`
 
 	// ID The route table ID
 	// +kubebuilder:validation:Required
@@ -184,7 +184,7 @@ type RouteTable struct {
 
 	// The routes defined in this route table
 	// +mapType=granular
-	Routes map[string]Route `json:"routes"`
+	Routes map[string]AwsRoute `json:"routes"`
 
 	// The tag value to group route tables by
 	// +optional
@@ -193,7 +193,7 @@ type RouteTable struct {
 
 // AwsRoute is an object that holds information about a route defined in AWS
 // +mapType=granular
-type Route struct {
+type AwsRoute struct {
 	// ID The route ID
 	// +kubebuilder:validation:Required
 	ID string `json:"id"`
@@ -249,7 +249,7 @@ type Route struct {
 
 // AwsAssociation is an object that holds information about an association defined in AWS
 // +mapType=granular
-type Association struct {
+type AwsAssociation struct {
 	// ID The association ID
 	// +kubebuilder:validation:Required
 	ID string `json:"id"`

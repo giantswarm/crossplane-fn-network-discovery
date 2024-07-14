@@ -74,8 +74,7 @@ func GetVpcPeeringConnections(c context.Context, api AwsEc2Api, input *ec2.Descr
 }
 
 var (
-	getEc2Client = func(cfg aws.Config) AwsEc2Api {
-		var ep string = xfnaws.GetServiceEndpoint("ec2")
+	getEc2Client = func(cfg aws.Config, ep string) AwsEc2Api {
 		if ep != "" {
 			return ec2.NewFromConfig(cfg, func(o *ec2.Options) {
 				o.BaseEndpoint = &ep
@@ -84,15 +83,16 @@ var (
 		return ec2.NewFromConfig(cfg)
 	}
 
-	awsConfig = func(region, provider *string, log logging.Logger) (aws.Config, error) {
+	awsConfig = func(region, provider *string, log logging.Logger) (aws.Config, map[string]string, error) {
 		return xfnaws.Config(region, provider, log)
 	}
 )
 
 // func (f *Function) ReadVpc(vpcName, region, groupTag, providerConfig *string) (vpc xfnd.Vpc, err error) {
-func (f *Function) ReadVpc(input *inp.RemoteVpc) (vpc xfnd.Vpc, err error) {
+func (f *Function) ReadVpc(input *inp.RemoteVpc) (vpc xfnd.AwsVpc, err error) {
 	var (
 		cfg      aws.Config
+		services map[string]string
 		vpcInput *ec2.DescribeVpcsInput = &ec2.DescribeVpcsInput{
 			Filters: []ec2types.Filter{
 				{
@@ -106,18 +106,24 @@ func (f *Function) ReadVpc(input *inp.RemoteVpc) (vpc xfnd.Vpc, err error) {
 
 	f.log.Info("Reading VPC", "vpc", input.Name, "region", input.Region, "providerConfig", input.ProviderConfig, "groupBy", input.GroupBy)
 	// Set up the aws client config
-	if cfg, err = awsConfig(&input.Region, &input.ProviderConfig, f.log); err != nil {
-		err = errors.Wrap(err, "failed to load aws config")
+	if cfg, services, err = awsConfig(&input.Region, &input.ProviderConfig, f.log); err != nil {
+		err = errors.Wrap(err, "failed to load aws config with region "+input.Region)
 		return
 	}
 
-	f.log.Info("setting up ec2 client")
-	ec2client = getEc2Client(cfg)
+	var ep string
+	var ok bool
+	if _, ok = services["ec2"]; ok {
+		ep = services["ec2"]
+	}
+
+	f.log.Info("setting up ec2 client to region " + input.Region + " with provider config " + input.ProviderConfig + " and endpoint " + ep)
+	ec2client = getEc2Client(cfg, ep)
 	vpc, err = f.getVpc(ec2client, vpcInput, &input.GroupBy)
 	return
 }
 
-func (f *Function) getVpc(client AwsEc2Api, input *ec2.DescribeVpcsInput, groupTag *string) (v xfnd.Vpc, err error) {
+func (f *Function) getVpc(client AwsEc2Api, input *ec2.DescribeVpcsInput, groupTag *string) (v xfnd.AwsVpc, err error) {
 	var (
 		vpcOutput   *ec2.DescribeVpcsOutput
 		subnetInput *ec2.DescribeSubnetsInput
@@ -143,7 +149,7 @@ func (f *Function) getVpc(client AwsEc2Api, input *ec2.DescribeVpcsInput, groupT
 		},
 	}
 
-	var subnets map[string]xfnd.Subnet
+	var subnets map[string]xfnd.AwsSubnet
 	var count int
 	{
 		count, subnets, err = f.getSubnets(client, subnetInput, groupTag)
@@ -230,7 +236,7 @@ func (f *Function) getVpc(client AwsEc2Api, input *ec2.DescribeVpcsInput, groupT
 		}
 	}
 
-	var additionalCidrBlocks []string
+	var additionalCidrBlocks []string = make([]string, 0)
 	{
 		for _, cidr := range vpcOutput.Vpcs[0].CidrBlockAssociationSet {
 			if *cidr.CidrBlock != *vpcOutput.Vpcs[0].CidrBlock {
@@ -239,7 +245,7 @@ func (f *Function) getVpc(client AwsEc2Api, input *ec2.DescribeVpcsInput, groupT
 		}
 	}
 
-	v = xfnd.Vpc{
+	v = xfnd.AwsVpc{
 		AdditionalCidrBlocks:  additionalCidrBlocks,
 		CidrBlock:             *vpcOutput.Vpcs[0].CidrBlock,
 		ID:                    *vpcOutput.Vpcs[0].VpcId,
@@ -280,9 +286,9 @@ func resize[T []xfnd.StatusSubnets | []xfnd.StatusRouteTables](s T) T {
 	return s
 }
 
-func (f *Function) getSubnets(client AwsEc2Api, input *ec2.DescribeSubnetsInput, groupTag *string) (count int, subnets map[string]xfnd.Subnet, err error) {
+func (f *Function) getSubnets(client AwsEc2Api, input *ec2.DescribeSubnetsInput, groupTag *string) (count int, subnets map[string]xfnd.AwsSubnet, err error) {
 	f.log.Info("Getting subnets")
-	subnets = make(map[string]xfnd.Subnet)
+	subnets = make(map[string]xfnd.AwsSubnet)
 
 	var subnetOutput *ec2.DescribeSubnetsOutput
 	{
@@ -316,7 +322,7 @@ func (f *Function) getSubnets(client AwsEc2Api, input *ec2.DescribeSubnetsInput,
 		}
 
 		f.log.Info("Processing subnet", "sn", *sn.SubnetId, "name", name)
-		var s xfnd.Subnet = xfnd.Subnet{
+		var s xfnd.AwsSubnet = xfnd.AwsSubnet{
 			ID:                  *sn.SubnetId,
 			AvailabilityZone:    *sn.AvailabilityZone,
 			CidrBlock:           *sn.CidrBlock,
@@ -326,7 +332,7 @@ func (f *Function) getSubnets(client AwsEc2Api, input *ec2.DescribeSubnetsInput,
 			SubnetSet:           subnetSet,
 		}
 
-		s.RouteTables = make(map[string]xfnd.RouteTable)
+		s.RouteTables = make(map[string]xfnd.AwsRouteTable)
 		s.NatGateways = make(map[string]string)
 		s.TransitGateways = make(map[string]string)
 		s.VpcPeeringConnections = make(map[string]string)
@@ -355,7 +361,7 @@ func (f *Function) getSubnets(client AwsEc2Api, input *ec2.DescribeSubnetsInput,
 		for _, rt := range routeTables.RouteTables {
 			var (
 				rtblName     string
-				associations []xfnd.Association
+				associations []xfnd.AwsAssociation
 			)
 			{
 				for _, tag := range rt.Tags {
@@ -375,7 +381,7 @@ func (f *Function) getSubnets(client AwsEc2Api, input *ec2.DescribeSubnetsInput,
 						continue
 					}
 					f.log.Info("Processing association", "assoc", *assoc.RouteTableAssociationId)
-					var a xfnd.Association = xfnd.Association{
+					var a xfnd.AwsAssociation = xfnd.AwsAssociation{
 						ID: *assoc.RouteTableAssociationId,
 					}
 
@@ -431,13 +437,13 @@ func (f *Function) getSubnets(client AwsEc2Api, input *ec2.DescribeSubnetsInput,
 				}
 			}
 
-			var rtbl xfnd.RouteTable = xfnd.RouteTable{
+			var rtbl xfnd.AwsRouteTable = xfnd.AwsRouteTable{
 				ID:           *rt.RouteTableId,
 				Associations: associations,
 				IsPublic:     s.IsPublic,
 				SubnetSet:    subnetSet,
 			}
-			rtbl.Routes = make(map[string]xfnd.Route)
+			rtbl.Routes = make(map[string]xfnd.AwsRoute)
 			s.RouteTables[rtblName] = rtbl
 		}
 		subnets[name] = s

@@ -11,11 +11,17 @@ import (
 	"github.com/giantswarm/xfnlib/pkg/composite"
 	"k8s.io/apimachinery/pkg/runtime"
 
+	aws "github.com/upbound/provider-aws/apis/v1beta1"
+
 	fnc "github.com/giantswarm/crossplane-fn-network-discovery/pkg/composite/v1beta1"
 	inp "github.com/giantswarm/crossplane-fn-network-discovery/pkg/input/v1beta1"
 )
 
 const composedName = "crossplane-fn-network-discovery"
+
+type AwsVpcs map[string]fnc.AwsVpc
+type AzureVpcs map[string]any
+type GcpVpcs map[string]any
 
 // RunFunction runs the composition Function to generate subnets from the given cluster
 func (f *Function) RunFunction(_ context.Context, req *fnv1beta1.RunFunctionRequest) (rsp *fnv1beta1.RunFunctionResponse, err error) {
@@ -25,8 +31,7 @@ func (f *Function) RunFunction(_ context.Context, req *fnv1beta1.RunFunctionRequ
 	var (
 		composed       *composite.Composition
 		input          inp.Input
-		vpcs           map[string]fnc.Vpc = make(map[string]fnc.Vpc)
-		search         []*inp.RemoteVpc   = make([]*inp.RemoteVpc, 0)
+		search         []inp.RemoteVpc = make([]inp.RemoteVpc, 0)
 		region         string
 		providerConfig string
 	)
@@ -77,28 +82,60 @@ func (f *Function) RunFunction(_ context.Context, req *fnv1beta1.RunFunctionRequ
 	}
 	f.log.Info("ProviderConfig", "pc", providerConfig)
 
-	if err = f.getValueInto(oxr.Resource, input.Spec.VpcNameRef, region, providerConfig, groupTag, search); err != nil {
+	requirements := make(map[string]*fnv1beta1.ResourceSelector)
+	pc := &fnv1beta1.ResourceSelector{
+		ApiVersion: "aws.upbound.io/v1beta1",
+		Kind:       "ProviderConfig",
+		Match: &fnv1beta1.ResourceSelector_MatchName{
+			MatchName: providerConfig,
+		},
+	}
+	requirements["providerConfig"] = pc
+	rsp.Requirements = &fnv1beta1.Requirements{
+		ExtraResources: requirements,
+	}
+
+	if req.ExtraResources == nil {
+		f.log.Debug("Loading extra resources")
+		return rsp, nil
+	}
+
+	extraResources, err := request.GetExtraResources(req)
+	if err != nil {
+		response.Fatal(rsp, errors.Errorf("fetching extra resources %T: %w", req, err))
+		return rsp, nil
+	}
+
+	awsProviderConfig := aws.ProviderConfig{}
+	if err = runtime.DefaultUnstructuredConverter.FromUnstructured(
+		extraResources["providerConfig"][0].Resource.UnstructuredContent(), &awsProviderConfig,
+	); err != nil {
+		f.log.Info("cannot convert provider config to struct", "error", err)
+		response.Fatal(rsp, errors.Wrap(err, "cannot convert provider config to struct"))
+		return rsp, nil
+	}
+
+	f.log.Info("========================================================================================================")
+	f.log.Info("ExtraResources", "extraResources", extraResources, "requirements", requirements, "pc", pc)
+	f.log.Info("AWS ProviderConfig", "awsProviderConfig", awsProviderConfig)
+	f.log.Info("========================================================================================================")
+
+	if err = f.getValueInto(oxr.Resource, input.Spec.VpcNameRef, region, providerConfig, groupTag, &search); err != nil {
 		f.log.Info("cannot get VPC name from input", "error", err)
 		response.Fatal(rsp, errors.Wrap(err, "cannot get VPC name from input"))
 		return rsp, nil
 	}
 
-	for _, n := range search {
-		var vpc fnc.Vpc
-		if vpc, err = f.ReadVpc(n); err != nil {
-			f.log.Info("cannot read VPC", "error", err, "name", n.Name)
-			continue
-		}
-
-		// Copy the  provider config and region from the search input so the
-		// composition doesn't have to re-match it on cross-account lookups.
-		vpc.Region = n.Region
-		vpc.ProviderConfig = n.ProviderConfig
-		vpcs[n.Name] = vpc
+	switch input.Spec.ProviderType {
+	case "aws":
+		err = f.awsVpcs(search, input.Spec.PatchTo, composed)
+	default:
+		f.log.Info("provider type not supported", "type", input.Spec.ProviderType)
+		response.Fatal(rsp, errors.New("provider type not supported"))
+		return rsp, nil
 	}
-	f.log.Info("VPCs", "vpcs", vpcs)
 
-	if err = f.patchFieldValueToObject(input.Spec.PatchTo, vpcs, composed.DesiredComposite.Resource); err != nil {
+	if err != nil {
 		f.log.Info("cannot patch VPCs to composite", "error", err)
 		response.Fatal(rsp, errors.Wrapf(err, "cannot render ToComposite patch %q", input.Spec.PatchTo))
 		return rsp, nil
@@ -113,8 +150,31 @@ func (f *Function) RunFunction(_ context.Context, req *fnv1beta1.RunFunctionRequ
 	return rsp, nil
 }
 
+func (f *Function) awsVpcs(search []inp.RemoteVpc, patchTo string, composed *composite.Composition) (err error) {
+	var vpcs AwsVpcs = make(AwsVpcs)
+	{
+		for _, n := range search {
+			n := n
+			var vpc fnc.AwsVpc
+			if vpc, err = f.ReadVpc(&n); err != nil {
+				f.log.Info("cannot read VPC", "error", err, "name", n.Name, "region", n.Region, "providerConfig", n.ProviderConfig)
+				continue
+			}
+
+			// Copy the  provider config and region from the search input so the
+			// composition doesn't have to re-match it on cross-account lookups.
+			vpc.Region = n.Region
+			vpc.ProviderConfig = n.ProviderConfig
+			vpcs[n.Name] = vpc
+		}
+		f.log.Info("VPCs", "vpcs", vpcs)
+	}
+	err = f.patchFieldValueToObject(patchTo, vpcs, composed.DesiredComposite.Resource)
+	return
+}
+
 // get array from paved
-func (f *Function) getValueInto(req runtime.Object, ref, region, providerConfig, groupBy string, value []*inp.RemoteVpc) (err error) {
+func (f *Function) getValueInto(req runtime.Object, ref, region, providerConfig, groupBy string, value *[]inp.RemoteVpc) (err error) {
 	var paved *fieldpath.Paved
 	if paved, err = fieldpath.PaveObject(req); err != nil {
 		return
@@ -122,18 +182,18 @@ func (f *Function) getValueInto(req runtime.Object, ref, region, providerConfig,
 
 	var s string
 	if s, err = paved.GetString(ref); err != nil {
-		err = paved.GetValueInto(ref, value)
-		for i := range value {
-			if value[i].Region == "" {
-				value[i].Region = region
+		err = paved.GetValueInto(ref, &value)
+		for i := range *value {
+			if (*value)[i].Region == "" {
+				(*value)[i].Region = region
 			}
 
-			if value[i].ProviderConfig == "" {
-				value[i].ProviderConfig = providerConfig
+			if (*value)[i].ProviderConfig == "" {
+				(*value)[i].ProviderConfig = providerConfig
 			}
 
-			if value[i].GroupBy == "" {
-				value[i].GroupBy = groupBy
+			if (*value)[i].GroupBy == "" {
+				(*value)[i].GroupBy = groupBy
 			}
 		}
 		return
@@ -144,7 +204,7 @@ func (f *Function) getValueInto(req runtime.Object, ref, region, providerConfig,
 		Region:         region,
 		ProviderConfig: providerConfig,
 	}
-	_ = append(value, &input)
+	*value = append(*value, input)
 	return
 }
 
@@ -171,7 +231,7 @@ func (f *Function) getBooleanFromPaved(req runtime.Object, ref string) (value bo
 }
 
 // patchFieldValueToObject is used to push information onto the XR status
-func (f *Function) patchFieldValueToObject(fieldPath string, value map[string]fnc.Vpc, to runtime.Object) (err error) {
+func (f *Function) patchFieldValueToObject(fieldPath string, value any, to runtime.Object) (err error) {
 	var paved *fieldpath.Paved
 	if paved, err = fieldpath.PaveObject(to); err != nil {
 		return

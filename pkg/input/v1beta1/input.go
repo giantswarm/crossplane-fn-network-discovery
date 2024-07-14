@@ -51,17 +51,34 @@ type Spec struct {
 
 	// GroupByRef A path to the field on the claim that determines the grouping
 	// of the subnets and route tables in the VPC
-	GroupByRef string `json:"groupByRef"`
-
-	// VpcName A path to the VPC name in the Claim
-	VpcNameRef string `json:"vpcRef"`
-
-	// Region A path to the region in the Claim
-	RegionRef string `json:"regionRef"`
-
-	// ProviderConfig A path to the provider config in the Claim
-	ProviderConfigRef string `json:"providerConfigRef"`
+	//
+	// +optional
+	GroupByRef string `json:"groupByRef,omitempty"`
 
 	// PatchTo specified the path to apply the VPC map
+	//
+	// +required
 	PatchTo string `json:"patchTo"`
+
+	// ProviderConfig A path to the provider config in the Claim
+	//
+	// +required
+	ProviderConfigRef string `json:"providerConfigRef"`
+
+	// ProviderType dictates what cloud provider the discovery is working against
+	//
+	// +kubebuilder:validation:Enum=aws;azure;gcp
+	// +kubebuilder:default=aws
+	// +optional
+	ProviderType string `json:"providerType"`
+
+	// Region A path to the region in the Claim
+	//
+	// +required
+	RegionRef string `json:"regionRef"`
+
+	// VpcName A path to the VPC name in the Claim
+	//
+	// +required
+	VpcNameRef string `json:"vpcRef"`
 }
