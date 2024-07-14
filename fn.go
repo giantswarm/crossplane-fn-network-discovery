@@ -154,6 +154,7 @@ func (f *Function) awsVpcs(search []inp.RemoteVpc, patchTo string, composed *com
 	var vpcs AwsVpcs = make(AwsVpcs)
 	{
 		for _, n := range search {
+			n := n
 			var vpc fnc.AwsVpc
 			if vpc, err = f.ReadVpc(&n); err != nil {
 				f.log.Info("cannot read VPC", "error", err, "name", n.Name, "region", n.Region, "providerConfig", n.ProviderConfig)
