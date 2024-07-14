@@ -11,9 +11,10 @@ import (
 	"github.com/giantswarm/xfnlib/pkg/composite"
 	"k8s.io/apimachinery/pkg/runtime"
 
+	aws "github.com/upbound/provider-aws/apis/v1beta1"
+
 	fnc "github.com/giantswarm/crossplane-fn-network-discovery/pkg/composite/v1beta1"
 	inp "github.com/giantswarm/crossplane-fn-network-discovery/pkg/input/v1beta1"
-	aws "github.com/upbound/provider-aws/apis/v1beta1"
 )
 
 const composedName = "crossplane-fn-network-discovery"
