@@ -111,7 +111,7 @@ kubectl create namespace org-sample
 # install IRSA operator...
 echo "Installing irsa-operator"
 helm install irsa-operator --namespace giantswarm giantswarm-control-plane-catalog/irsa-operator \
-    --set aws.accessKeyID=$AWS_ACCESS_KEY_ID,aws.secretAccessKey=$AWS_SECRET_ACCESS_KEY,region=$AWS_REGION,capa=true,legacy=false,installation.name=$MC_NAME,global.podSecurityStandards.enforced=true
+    --set aws.accessKeyID=$AWS_ACCESS_KEY_ID,aws.secretAccessKey=$AWS_SECRET_ACCESS_KEY,aws.region=$AWS_REGION,capa=true,legacy=false,installation.name=$MC_NAME,global.podSecurityStandards.enforced=true
 
 wait_for_deployment giantswarm irsa-operator
 rm -rf irsa

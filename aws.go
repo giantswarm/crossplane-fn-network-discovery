@@ -90,10 +90,12 @@ func GetVpcPeeringConnections(c context.Context, api AwsEc2Api, input *ec2.Descr
 var (
 	getEc2Client = func(cfg aws.Config, ep string) AwsEc2Api {
 		if ep != "" {
+			fmt.Printf("[ INFO ] Setting up EC2 client with endpoint " + ep)
 			return ec2.NewFromConfig(cfg, func(o *ec2.Options) {
 				o.BaseEndpoint = &ep
 			})
 		}
+		fmt.Println("[ INFO ] Setting up EC2 client without endpoint")
 		return ec2.NewFromConfig(cfg)
 	}
 
@@ -442,13 +444,10 @@ func (f *Function) getSubnets(client AwsEc2Api, input *ec2.DescribeSubnetsInput,
 						tgwname, details, err = f.getTransitGateway(client, *r.TransitGatewayId)
 						if err != nil {
 							f.log.Info("Error getting Transit Gateway - skipping", "error", err)
-						} else {
-							if tgwname != "" {
-								if !strings.HasSuffix(tgwname, s.AvailabilityZone) {
-									tgwname = tgwname + "-" + s.AvailabilityZone
-								}
-								s.TransitGateways[tgwname] = details
-							}
+						}
+
+						if tgwname != "" {
+							s.TransitGateways[tgwname] = details
 						}
 					}
 
@@ -460,9 +459,6 @@ func (f *Function) getSubnets(client AwsEc2Api, input *ec2.DescribeSubnetsInput,
 						}
 
 						if pcname != "" {
-							if !strings.HasSuffix(pcname, s.AvailabilityZone) {
-								pcname = pcname + "-" + s.AvailabilityZone
-							}
 							s.VpcPeeringConnections[pcname] = *r.VpcPeeringConnectionId
 						}
 
@@ -525,7 +521,8 @@ func (f *Function) getTransitGateway(client AwsEc2Api, tgwId string) (name strin
 		RouteTables: make(map[string]xfnd.TransitGatewayRouteTable),
 	}
 
-	for _, n := range tgw.TransitGateways {
+	for i, n := range tgw.TransitGateways {
+		name = "no-name-" + strconv.Itoa(i)
 		for _, tag := range n.Tags {
 			if *tag.Key == nametag {
 				name = *tag.Value
@@ -533,6 +530,7 @@ func (f *Function) getTransitGateway(client AwsEc2Api, tgwId string) (name strin
 		}
 		var attachments *ec2.DescribeTransitGatewayAttachmentsOutput
 		{
+			f.log.Info("Getting Transit Gateway Attachments", "tgw", tgwId)
 			attachments, err = GetTransitGatewayAttachments(context.Background(), client, &ec2.DescribeTransitGatewayAttachmentsInput{
 				Filters: []ec2types.Filter{
 					{
@@ -542,11 +540,12 @@ func (f *Function) getTransitGateway(client AwsEc2Api, tgwId string) (name strin
 				},
 			})
 			if err != nil {
+				f.log.Info("Got an error retrieving information about your Transit Gateway attachments", "error", err)
 				return
 			}
 
-			for _, a := range attachments.TransitGatewayAttachments {
-				var tgwName string
+			for i, a := range attachments.TransitGatewayAttachments {
+				var tgwName string = "no-name-" + strconv.Itoa(i)
 				{
 					for _, tag := range a.Tags {
 						if *tag.Key == nametag {
@@ -559,40 +558,42 @@ func (f *Function) getTransitGateway(client AwsEc2Api, tgwId string) (name strin
 					ID:   *a.TransitGatewayAttachmentId,
 					Type: string(a.ResourceType),
 				}
-
-				var rtbs *ec2.DescribeTransitGatewayRouteTablesOutput
-				{
-					rtbs, err = GetTransitGatewayRouteTables(context.Background(), client, &ec2.DescribeTransitGatewayRouteTablesInput{
-						Filters: []ec2types.Filter{
-							{
-								Name:   aws.String("transit-gateway-id"),
-								Values: []string{tgwId},
-							},
-						},
-					})
-					if err != nil {
-						return
-					}
-
-					for _, rtb := range rtbs.TransitGatewayRouteTables {
-						var rtbName string
+			}
+			var rtbs *ec2.DescribeTransitGatewayRouteTablesOutput
+			{
+				f.log.Info("Getting Transit Gateway Route Tables", "tgw", tgwId)
+				rtbs, err = GetTransitGatewayRouteTables(context.Background(), client, &ec2.DescribeTransitGatewayRouteTablesInput{
+					Filters: []ec2types.Filter{
 						{
-							for _, tag := range rtb.Tags {
-								if *tag.Key == nametag {
-									rtbName = *tag.Value
-								}
+							Name:   aws.String("transit-gateway-id"),
+							Values: []string{tgwId},
+						},
+					},
+				})
+				if err != nil {
+					f.log.Info("Got an error retrieving information about your Transit Gateway route tables", "error", err)
+					return
+				}
+
+				for i, rtb := range rtbs.TransitGatewayRouteTables {
+					var rtbName string = "no-name-" + strconv.Itoa(i)
+					{
+						for _, tag := range rtb.Tags {
+							if *tag.Key == nametag {
+								rtbName = *tag.Value
 							}
 						}
+					}
 
-						details.RouteTables[rtbName] = xfnd.TransitGatewayRouteTable{
-							ID:      *rtb.TransitGatewayRouteTableId,
-							Default: *rtb.DefaultAssociationRouteTable,
-						}
+					details.RouteTables[rtbName] = xfnd.TransitGatewayRouteTable{
+						ID:      *rtb.TransitGatewayRouteTableId,
+						Default: *rtb.DefaultAssociationRouteTable,
 					}
 				}
 			}
 		}
 	}
+	f.log.Info("Transit Gateway", "tgw", tgwId, "name", name, "details", details)
 	return
 }
 
