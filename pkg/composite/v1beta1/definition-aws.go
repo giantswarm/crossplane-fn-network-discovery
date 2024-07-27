@@ -1,4 +1,5 @@
 // Package v1beta1 contains the definition of the XR requirements for using this function
+//
 // +kubebuilder:object:generate=true
 // +groupName=networkdiscovery.fn.giantswarm.io
 // +versionName=v1beta1
@@ -24,11 +25,25 @@ type Aws struct {
 
 // StatusSubnets is a map of subnets and their status
 // +mapType=atomic
-type StatusSubnets map[string]string
+type StatusSubnets map[string]StatusSubnetDetails
+
+type StatusSubnetDetails struct {
+	// The ID of the subnet
+	//
+	// +required
+	ID string `json:"id"`
+}
 
 // StatusRouteTables is a map of route tables and their status
 // +mapType=atomic
-type StatusRouteTables map[string]string
+type StatusRouteTables map[string]StatusRouteTableDetails
+
+type StatusRouteTableDetails struct {
+	// The ID of the route table
+	//
+	// +required
+	ID string `json:"id"`
+}
 
 // Vpc holds VPC information
 type AwsVpc struct {
@@ -92,13 +107,56 @@ type AwsVpc struct {
 	// +mapType=atomic
 	// +optional
 	// +nullable
-	TransitGateways map[string]string `json:"transitGateways"`
+	TransitGateways map[string]TransitGateway `json:"transitGateways"`
 
 	// A map of VPC peering connections defined in this VPC
 	// +mapType=atomic
 	// +optional
 	// +nullable
 	VpcPeeringConnections map[string]string `json:"vpcPeeringConnections"`
+}
+
+type TransitGateway struct {
+	// The ID of the transit gateway
+	//
+	// +optional
+	ID string `json:"id"`
+
+	// TransitGatewayAttachments The IDs of the transit gateway attachment(s)
+	// associated with this transit gateway
+	//
+	// +optional
+	Attachments map[string]TransitGatewayAttachment `json:"attachments"`
+
+	// TransitGatewayRouteTables The IDs of the transit gateway route table(s)
+	// associated with this transit gateway
+	//
+	// +optional
+	RouteTables map[string]TransitGatewayRouteTable `json:"routeTables"`
+}
+
+type TransitGatewayAttachment struct {
+	// The ID of the transit gateway attachment
+	//
+	// +optional
+	ID string `json:"id"`
+
+	// The type of the transit gateway attachment
+	//
+	// +optional
+	Type string `json:"type"`
+}
+
+type TransitGatewayRouteTable struct {
+	// The ID of the transit gateway route table
+	//
+	// +optional
+	ID string `json:"id"`
+
+	// Is this the default route table for the transit gateway
+	//
+	// +optional
+	Default bool `json:"default"`
 }
 
 // AwsSubnet is an object that holds information about a subnet defined in AWS
@@ -153,7 +211,7 @@ type AwsSubnet struct {
 	// A map of transit gateways associated with this subnet
 	// +mapType=granular
 	// +optional
-	TransitGateways map[string]string `json:"transitGateways"`
+	TransitGateways map[string]TransitGateway `json:"transitGateways"`
 
 	// A map of VPC peering connections associated with this subnet
 	// +mapType=granular
