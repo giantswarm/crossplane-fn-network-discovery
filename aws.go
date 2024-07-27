@@ -39,6 +39,12 @@ type AwsEc2Api interface {
 	DescribeTransitGateways(ctx context.Context,
 		params *ec2.DescribeTransitGatewaysInput,
 		optFns ...func(*ec2.Options)) (*ec2.DescribeTransitGatewaysOutput, error)
+	DescribeTransitGatewayAttachments(ctx context.Context,
+		params *ec2.DescribeTransitGatewayAttachmentsInput,
+		optFns ...func(*ec2.Options)) (*ec2.DescribeTransitGatewayAttachmentsOutput, error)
+	DescribeTransitGatewayRouteTables(ctx context.Context,
+		params *ec2.DescribeTransitGatewayRouteTablesInput,
+		optFns ...func(*ec2.Options)) (*ec2.DescribeTransitGatewayRouteTablesOutput, error)
 	DescribeVpcPeeringConnections(ctx context.Context,
 		params *ec2.DescribeVpcPeeringConnectionsInput,
 		optFns ...func(*ec2.Options)) (*ec2.DescribeVpcPeeringConnectionsOutput, error)
@@ -67,6 +73,14 @@ func GetNatGateways(c context.Context, api AwsEc2Api, input *ec2.DescribeNatGate
 
 func GetTransitGateways(c context.Context, api AwsEc2Api, input *ec2.DescribeTransitGatewaysInput) (*ec2.DescribeTransitGatewaysOutput, error) {
 	return api.DescribeTransitGateways(c, input)
+}
+
+func GetTransitGatewayAttachments(c context.Context, api AwsEc2Api, input *ec2.DescribeTransitGatewayAttachmentsInput) (*ec2.DescribeTransitGatewayAttachmentsOutput, error) {
+	return api.DescribeTransitGatewayAttachments(c, input)
+}
+
+func GetTransitGatewayRouteTables(c context.Context, api AwsEc2Api, input *ec2.DescribeTransitGatewayRouteTablesInput) (*ec2.DescribeTransitGatewayRouteTablesOutput, error) {
+	return api.DescribeTransitGatewayRouteTables(c, input)
 }
 
 func GetVpcPeeringConnections(c context.Context, api AwsEc2Api, input *ec2.DescribeVpcPeeringConnectionsInput) (*ec2.DescribeVpcPeeringConnectionsOutput, error) {
@@ -159,38 +173,42 @@ func (f *Function) getVpc(client AwsEc2Api, input *ec2.DescribeVpcsInput, groupT
 	}
 
 	var (
-		publicSubnets         []xfnd.StatusSubnets     = make([]xfnd.StatusSubnets, count)
-		privateSubnets        []xfnd.StatusSubnets     = make([]xfnd.StatusSubnets, count)
-		publicRouteTables     []xfnd.StatusRouteTables = make([]xfnd.StatusRouteTables, count)
-		privateRouteTables    []xfnd.StatusRouteTables = make([]xfnd.StatusRouteTables, count)
-		natGateways           map[string]string        = make(map[string]string, count)
-		transitGateways       map[string]string        = make(map[string]string, count)
-		vpcPeeringConnections map[string]string        = make(map[string]string, count)
+		publicSubnets         []xfnd.StatusSubnets           = make([]xfnd.StatusSubnets, count)
+		privateSubnets        []xfnd.StatusSubnets           = make([]xfnd.StatusSubnets, count)
+		publicRouteTables     []xfnd.StatusRouteTables       = make([]xfnd.StatusRouteTables, count)
+		privateRouteTables    []xfnd.StatusRouteTables       = make([]xfnd.StatusRouteTables, count)
+		natGateways           map[string]string              = make(map[string]string, count)
+		transitGateways       map[string]xfnd.TransitGateway = make(map[string]xfnd.TransitGateway, count)
+		vpcPeeringConnections map[string]string              = make(map[string]string, count)
 		igw                   string
 	)
 	{
 		for n, sn := range subnets {
 			var g int = sn.SubnetSet
 			if publicSubnets[g] == nil {
-				publicSubnets[g] = make(map[string]string)
+				publicSubnets[g] = make(map[string]xfnd.StatusSubnetDetails)
 			}
 
 			if privateSubnets[g] == nil {
-				privateSubnets[g] = make(map[string]string)
+				privateSubnets[g] = make(map[string]xfnd.StatusSubnetDetails)
 			}
 
 			if publicRouteTables[g] == nil {
-				publicRouteTables[g] = make(map[string]string)
+				publicRouteTables[g] = make(map[string]xfnd.StatusRouteTableDetails)
 			}
 
 			if privateRouteTables[g] == nil {
-				privateRouteTables[g] = make(map[string]string)
+				privateRouteTables[g] = make(map[string]xfnd.StatusRouteTableDetails)
 			}
 
 			if sn.IsPublic {
-				publicSubnets[g][n] = sn.ID
+				publicSubnets[g][n] = xfnd.StatusSubnetDetails{
+					ID: sn.ID,
+				}
 			} else {
-				privateSubnets[g][n] = sn.ID
+				privateSubnets[g][n] = xfnd.StatusSubnetDetails{
+					ID: sn.ID,
+				}
 			}
 
 			if sn.InternetGateway != "" {
@@ -220,9 +238,13 @@ func (f *Function) getVpc(client AwsEc2Api, input *ec2.DescribeVpcsInput, groupT
 
 			for n, rt := range sn.RouteTables {
 				if rt.IsPublic {
-					publicRouteTables[g][n] = rt.ID
+					publicRouteTables[g][n] = xfnd.StatusRouteTableDetails{
+						ID: rt.ID,
+					}
 				} else {
-					privateRouteTables[g][n] = rt.ID
+					privateRouteTables[g][n] = xfnd.StatusRouteTableDetails{
+						ID: rt.ID,
+					}
 				}
 			}
 		}
@@ -334,7 +356,7 @@ func (f *Function) getSubnets(client AwsEc2Api, input *ec2.DescribeSubnetsInput,
 
 		s.RouteTables = make(map[string]xfnd.AwsRouteTable)
 		s.NatGateways = make(map[string]string)
-		s.TransitGateways = make(map[string]string)
+		s.TransitGateways = make(map[string]xfnd.TransitGateway)
 		s.VpcPeeringConnections = make(map[string]string)
 
 		var routeTables *ec2.DescribeRouteTablesOutput
@@ -405,21 +427,29 @@ func (f *Function) getSubnets(client AwsEc2Api, input *ec2.DescribeSubnetsInput,
 						if err != nil {
 							f.log.Info("Error getting NAT Gateway - skipping", "error", err)
 						}
+
 						if ngwname != "" {
+							if !strings.HasSuffix(ngwname, s.AvailabilityZone) {
+								ngwname = ngwname + "-" + s.AvailabilityZone
+							}
 							s.NatGateways[ngwname] = *r.NatGatewayId
 						}
 					}
 
 					if r.TransitGatewayId != nil {
 						var tgwname string
-						tgwname, err = f.getTransitGateway(client, *r.TransitGatewayId)
+						var details xfnd.TransitGateway
+						tgwname, details, err = f.getTransitGateway(client, *r.TransitGatewayId)
 						if err != nil {
 							f.log.Info("Error getting Transit Gateway - skipping", "error", err)
+						} else {
+							if tgwname != "" {
+								if !strings.HasSuffix(tgwname, s.AvailabilityZone) {
+									tgwname = tgwname + "-" + s.AvailabilityZone
+								}
+								s.TransitGateways[tgwname] = details
+							}
 						}
-						if tgwname != "" {
-							s.TransitGateways[tgwname] = *r.TransitGatewayId
-						}
-
 					}
 
 					if r.VpcPeeringConnectionId != nil {
@@ -430,6 +460,9 @@ func (f *Function) getSubnets(client AwsEc2Api, input *ec2.DescribeSubnetsInput,
 						}
 
 						if pcname != "" {
+							if !strings.HasSuffix(pcname, s.AvailabilityZone) {
+								pcname = pcname + "-" + s.AvailabilityZone
+							}
 							s.VpcPeeringConnections[pcname] = *r.VpcPeeringConnectionId
 						}
 
@@ -477,7 +510,7 @@ func (f *Function) getNatGateway(client AwsEc2Api, ngwId string) (name string, e
 	return
 }
 
-func (f *Function) getTransitGateway(client AwsEc2Api, tgwId string) (name string, err error) {
+func (f *Function) getTransitGateway(client AwsEc2Api, tgwId string) (name string, details xfnd.TransitGateway, err error) {
 	f.log.Info("Getting Transit Gateway", "tgw", tgwId)
 	tgw, err := GetTransitGateways(context.Background(), client, &ec2.DescribeTransitGatewaysInput{
 		TransitGatewayIds: []string{tgwId},
@@ -486,10 +519,77 @@ func (f *Function) getTransitGateway(client AwsEc2Api, tgwId string) (name strin
 		return
 	}
 
+	details = xfnd.TransitGateway{
+		ID:          tgwId,
+		Attachments: make(map[string]xfnd.TransitGatewayAttachment),
+		RouteTables: make(map[string]xfnd.TransitGatewayRouteTable),
+	}
+
 	for _, n := range tgw.TransitGateways {
 		for _, tag := range n.Tags {
 			if *tag.Key == nametag {
 				name = *tag.Value
+			}
+		}
+		var attachments *ec2.DescribeTransitGatewayAttachmentsOutput
+		{
+			attachments, err = GetTransitGatewayAttachments(context.Background(), client, &ec2.DescribeTransitGatewayAttachmentsInput{
+				Filters: []ec2types.Filter{
+					{
+						Name:   aws.String("transit-gateway-id"),
+						Values: []string{tgwId},
+					},
+				},
+			})
+			if err != nil {
+				return
+			}
+
+			for _, a := range attachments.TransitGatewayAttachments {
+				var tgwName string
+				{
+					for _, tag := range a.Tags {
+						if *tag.Key == nametag {
+							tgwName = *tag.Value
+						}
+					}
+				}
+
+				details.Attachments[tgwName] = xfnd.TransitGatewayAttachment{
+					ID:   *a.TransitGatewayAttachmentId,
+					Type: string(a.ResourceType),
+				}
+
+				var rtbs *ec2.DescribeTransitGatewayRouteTablesOutput
+				{
+					rtbs, err = GetTransitGatewayRouteTables(context.Background(), client, &ec2.DescribeTransitGatewayRouteTablesInput{
+						Filters: []ec2types.Filter{
+							{
+								Name:   aws.String("transit-gateway-id"),
+								Values: []string{tgwId},
+							},
+						},
+					})
+					if err != nil {
+						return
+					}
+
+					for _, rtb := range rtbs.TransitGatewayRouteTables {
+						var rtbName string
+						{
+							for _, tag := range rtb.Tags {
+								if *tag.Key == nametag {
+									rtbName = *tag.Value
+								}
+							}
+						}
+
+						details.RouteTables[rtbName] = xfnd.TransitGatewayRouteTable{
+							ID:      *rtb.TransitGatewayRouteTableId,
+							Default: *rtb.DefaultAssociationRouteTable,
+						}
+					}
+				}
 			}
 		}
 	}

@@ -1,0 +1,17 @@
+---
+apiVersion: pkg.crossplane.io/v1beta1
+kind: Function
+metadata:
+  name: function-network-discovery
+spec:
+  package: docker.io/choclab/function-network-discovery:v0.0.1-49
+  runtimeConfigRef:
+    name: aws-discovery
+
+---
+apiVersion: pkg.crossplane.io/v1
+kind: Provider
+metadata:
+  name: provider-aws
+spec:
+  package: xpkg.upbound.io/upbound/provider-family-aws:v1.9.1
