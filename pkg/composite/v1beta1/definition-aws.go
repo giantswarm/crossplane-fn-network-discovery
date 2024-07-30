@@ -60,6 +60,7 @@ type AwsVpc struct {
 	// A list of additional VPC CIDR blocks defined in this VPC
 	// +listType=atomic
 	// +optional
+	// +nullable
 	AdditionalCidrBlocks []string `json:"additionalCidrBlocks"`
 
 	// The Ipv4 cidr block defined for this VPC
@@ -78,6 +79,7 @@ type AwsVpc struct {
 	// A map of NAT gateways defined in this VPC
 	// +mapType=atomic
 	// +optional
+	// +nullable
 	NatGateways map[string]string `json:"natGateways"`
 
 	// The owner of the current VPC
@@ -91,21 +93,25 @@ type AwsVpc struct {
 	// A map of private subnets defined in this VPC
 	// +listType=atomic
 	// +optional
+	// +nullable
 	PrivateSubnets []StatusSubnets `json:"privateSubnets"`
 
 	// A list of maps of public subnets defined in this VPC
 	// +listType=atomic
 	// +optional
+	// +nullable
 	PublicSubnets []StatusSubnets `json:"publicSubnets"`
 
 	// A map of private route tables defined in this VPC
 	// +listType=atomic
 	// +optional
+	// +nullable
 	PrivateRouteTables []StatusRouteTables `json:"privateRouteTables"`
 
 	// A map of public route tables defined in this VPC
 	// +listType=atomic
 	// +optional
+	// +nullable
 	PublicRouteTables []StatusRouteTables `json:"publicRouteTables"`
 
 	// The region this VPC is located in
@@ -115,6 +121,7 @@ type AwsVpc struct {
 	// A map of security groups defined in this VPC
 	// +mapType=atomic
 	// +optional
+	// +nullable
 	SecurityGroups map[string]string `json:"securityGroups"`
 
 	// A map of transit gateways defined in this VPC

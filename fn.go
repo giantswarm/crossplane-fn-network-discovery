@@ -135,7 +135,10 @@ func (f *Function) awsVpcs(search []inp.RemoteVpc, current inp.RemoteVpc, patchT
 		}
 
 		if _, ok := vpcs["self"]; !ok {
-			if id, err := f.GetAccountId(&current.Region, &current.ProviderConfig); err != nil {
+			var id string
+			if id, err = f.GetAccountId(&current.Region, &current.ProviderConfig); err != nil {
+				f.log.Info("cannot get account ID", "error", err)
+			} else {
 				vpcs["self"] = fnc.AwsVpc{
 					Owner: id,
 				}
