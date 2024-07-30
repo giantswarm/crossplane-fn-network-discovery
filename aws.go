@@ -120,7 +120,7 @@ var (
 	}
 )
 
-func (f *Function) GetAccountId() (id string, err error) {
+func (f *Function) GetAccountId(region, pcr *string) (id string, err error) {
 	var (
 		cfg       aws.Config
 		services  map[string]string
@@ -129,7 +129,7 @@ func (f *Function) GetAccountId() (id string, err error) {
 
 	f.log.Info("Getting caller identity")
 	// Set up the aws client config
-	if cfg, services, err = awsConfig(nil, nil, f.log); err != nil {
+	if cfg, services, err = awsConfig(region, pcr, f.log); err != nil {
 		err = errors.Wrap(err, "failed to load aws config")
 		return
 	}
