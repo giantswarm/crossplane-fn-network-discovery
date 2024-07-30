@@ -19,15 +19,22 @@ type Aws struct {
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
 	// The VPCs defined in this AWS account
+	//
 	// +mapType=granular
 	Vpcs map[string]AwsVpc `json:"vpcs"`
 }
 
 // StatusSubnets is a map of subnets and their status
+//
 // +mapType=atomic
 type StatusSubnets map[string]StatusSubnetDetails
 
 type StatusSubnetDetails struct {
+	// The ARN of the subnet
+	//
+	// +required
+	ARN string `json:"arn"`
+
 	// The ID of the subnet
 	//
 	// +required
@@ -35,6 +42,7 @@ type StatusSubnetDetails struct {
 }
 
 // StatusRouteTables is a map of route tables and their status
+//
 // +mapType=atomic
 type StatusRouteTables map[string]StatusRouteTableDetails
 
@@ -46,6 +54,8 @@ type StatusRouteTableDetails struct {
 }
 
 // Vpc holds VPC information
+//
+// +structType=granular
 type AwsVpc struct {
 	// A list of additional VPC CIDR blocks defined in this VPC
 	// +listType=atomic
@@ -69,6 +79,10 @@ type AwsVpc struct {
 	// +mapType=atomic
 	// +optional
 	NatGateways map[string]string `json:"natGateways"`
+
+	// The owner of the current VPC
+	// +optional
+	Owner string `json:"owner"`
 
 	// The provider config used to look up this VPC
 	// +optional
@@ -113,10 +127,27 @@ type AwsVpc struct {
 	// +mapType=atomic
 	// +optional
 	// +nullable
-	VpcPeeringConnections map[string]string `json:"vpcPeeringConnections"`
+	VpcPeeringConnections map[string]PeeringConnection `json:"vpcPeeringConnections"`
+}
+
+type PeeringConnection struct {
+	// The ID of the VPC peering connection
+	//
+	// +optional
+	ID string `json:"id"`
+
+	// The ARN of the VPC peering connection
+	//
+	// +optional
+	ARN string `json:"arn"`
 }
 
 type TransitGateway struct {
+	// The ARN of the transit gateway
+	//
+	// +optional
+	ARN string `json:"arn"`
+
 	// The ID of the transit gateway
 	//
 	// +optional
@@ -141,6 +172,16 @@ type TransitGatewayAttachment struct {
 	// +optional
 	ID string `json:"id"`
 
+	// The ID of the resource that the transit gateway is attached to
+	//
+	// +optional
+	ResourceID string `json:"resourceId"`
+
+	// The associated route table ID
+	//
+	// +optional
+	RouteTableID string `json:"routeTableId"`
+
 	// The type of the transit gateway attachment
 	//
 	// +optional
@@ -156,12 +197,21 @@ type TransitGatewayRouteTable struct {
 	// Is this the default route table for the transit gateway
 	//
 	// +optional
-	Default bool `json:"default"`
+	DefaultAssociation bool `json:"defaultAssociation"`
+
+	// Is this the default propagation route table for the transit gateway
+	//
+	// +optional
+	DefaultPropagation bool `json:"defaultPropagation"`
 }
 
 // AwsSubnet is an object that holds information about a subnet defined in AWS
 // +mapType=granular
 type AwsSubnet struct {
+	// The ARN of the subnet
+	// +optional
+	ARN string `json:"arn"`
+
 	// ID The subnet ID
 	// +kubebuilder:validation:Required
 	ID string `json:"id"`
@@ -216,7 +266,7 @@ type AwsSubnet struct {
 	// A map of VPC peering connections associated with this subnet
 	// +mapType=granular
 	// +optional
-	VpcPeeringConnections map[string]string `json:"vpcPeeringConnections"`
+	VpcPeeringConnections map[string]PeeringConnection `json:"vpcPeeringConnections"`
 }
 
 // AwsRouteTable is an object that holds information about a route table defined in AWS

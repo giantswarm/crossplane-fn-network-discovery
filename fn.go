@@ -56,7 +56,7 @@ func (f *Function) RunFunction(_ context.Context, req *fnv1beta1.RunFunctionRequ
 	enabled, err := f.getBooleanFromPaved(oxr.Resource, input.Spec.EnabledRef)
 	if err != nil {
 		f.log.Info("cannot get enabled state from input", "error", err)
-		response.Fatal(rsp, errors.Wrap(err, "cannot get enabled state from input"))
+		response.Warning(rsp, errors.Wrap(err, "cannot get enabled state from input"))
 		return rsp, nil
 	}
 
@@ -166,6 +166,14 @@ func (f *Function) awsVpcs(search []inp.RemoteVpc, patchTo string, composed *com
 			vpc.Region = n.Region
 			vpc.ProviderConfig = n.ProviderConfig
 			vpcs[n.Name] = vpc
+		}
+
+		if _, ok := vpcs["self"]; !ok {
+			if id, err := f.GetAccountId(); err != nil {
+				vpcs["self"] = fnc.AwsVpc{
+					Owner: id,
+				}
+			}
 		}
 		f.log.Info("VPCs", "vpcs", vpcs)
 	}
