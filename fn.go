@@ -11,8 +11,6 @@ import (
 	"github.com/giantswarm/xfnlib/pkg/composite"
 	"k8s.io/apimachinery/pkg/runtime"
 
-	aws "github.com/upbound/provider-aws/apis/v1beta1"
-
 	fnc "github.com/giantswarm/crossplane-fn-network-discovery/pkg/composite/v1beta1"
 	inp "github.com/giantswarm/crossplane-fn-network-discovery/pkg/input/v1beta1"
 )
@@ -82,44 +80,6 @@ func (f *Function) RunFunction(_ context.Context, req *fnv1beta1.RunFunctionRequ
 	}
 	f.log.Info("ProviderConfig", "pc", providerConfig)
 
-	requirements := make(map[string]*fnv1beta1.ResourceSelector)
-	pc := &fnv1beta1.ResourceSelector{
-		ApiVersion: "aws.upbound.io/v1beta1",
-		Kind:       "ProviderConfig",
-		Match: &fnv1beta1.ResourceSelector_MatchName{
-			MatchName: providerConfig,
-		},
-	}
-	requirements["providerConfig"] = pc
-	rsp.Requirements = &fnv1beta1.Requirements{
-		ExtraResources: requirements,
-	}
-
-	if req.ExtraResources == nil {
-		f.log.Debug("Loading extra resources")
-		return rsp, nil
-	}
-
-	extraResources, err := request.GetExtraResources(req)
-	if err != nil {
-		response.Fatal(rsp, errors.Errorf("fetching extra resources %T: %w", req, err))
-		return rsp, nil
-	}
-
-	awsProviderConfig := aws.ProviderConfig{}
-	if err = runtime.DefaultUnstructuredConverter.FromUnstructured(
-		extraResources["providerConfig"][0].Resource.UnstructuredContent(), &awsProviderConfig,
-	); err != nil {
-		f.log.Info("cannot convert provider config to struct", "error", err)
-		response.Fatal(rsp, errors.Wrap(err, "cannot convert provider config to struct"))
-		return rsp, nil
-	}
-
-	f.log.Info("========================================================================================================")
-	f.log.Info("ExtraResources", "extraResources", extraResources, "requirements", requirements, "pc", pc)
-	f.log.Info("AWS ProviderConfig", "awsProviderConfig", awsProviderConfig)
-	f.log.Info("========================================================================================================")
-
 	if err = f.getValueInto(oxr.Resource, input.Spec.VpcNameRef, region, providerConfig, groupTag, &search); err != nil {
 		f.log.Info("cannot get VPC name from input", "error", err)
 		response.Fatal(rsp, errors.Wrap(err, "cannot get VPC name from input"))
@@ -128,7 +88,13 @@ func (f *Function) RunFunction(_ context.Context, req *fnv1beta1.RunFunctionRequ
 
 	switch input.Spec.ProviderType {
 	case "aws":
-		err = f.awsVpcs(search, input.Spec.PatchTo, composed)
+		current := inp.RemoteVpc{
+			Name:           "self",
+			Region:         region,
+			ProviderConfig: providerConfig,
+			GroupBy:        groupTag,
+		}
+		err = f.awsVpcs(search, current, input.Spec.PatchTo, composed)
 	default:
 		f.log.Info("provider type not supported", "type", input.Spec.ProviderType)
 		response.Fatal(rsp, errors.New("provider type not supported"))
@@ -150,7 +116,7 @@ func (f *Function) RunFunction(_ context.Context, req *fnv1beta1.RunFunctionRequ
 	return rsp, nil
 }
 
-func (f *Function) awsVpcs(search []inp.RemoteVpc, patchTo string, composed *composite.Composition) (err error) {
+func (f *Function) awsVpcs(search []inp.RemoteVpc, current inp.RemoteVpc, patchTo string, composed *composite.Composition) (err error) {
 	var vpcs AwsVpcs = make(AwsVpcs)
 	{
 		for _, n := range search {
@@ -169,7 +135,7 @@ func (f *Function) awsVpcs(search []inp.RemoteVpc, patchTo string, composed *com
 		}
 
 		if _, ok := vpcs["self"]; !ok {
-			if id, err := f.GetAccountId(); err != nil {
+			if id, err := f.GetAccountId(&current.Region, &current.ProviderConfig); err != nil {
 				vpcs["self"] = fnc.AwsVpc{
 					Owner: id,
 				}
