@@ -32,7 +32,7 @@ type StatusSubnets map[string]StatusSubnetDetails
 type StatusSubnetDetails struct {
 	// The ARN of the subnet
 	//
-	// +required
+	// +optional
 	ARN string `json:"arn"`
 
 	// The ID of the subnet
