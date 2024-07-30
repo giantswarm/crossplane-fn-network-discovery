@@ -61,80 +61,80 @@ type AwsVpc struct {
 	// +listType=atomic
 	// +optional
 	// +nullable
-	AdditionalCidrBlocks []string `json:"additionalCidrBlocks"`
+	AdditionalCidrBlocks []string `json:"additionalCidrBlocks,omitempty"`
 
 	// The Ipv4 cidr block defined for this VPC
 	// +optional
-	CidrBlock string `json:"cidrBlock"`
+	CidrBlock string `json:"cidrBlock,omitempty"`
 
 	// ID The VPC ID
 	// +kubebuilder:validation:Required
 	// +required
-	ID string `json:"id"`
+	ID string `json:"id,omitempty"`
 
 	// The internet gateway defined in this VPC
 	// +optional
-	InternetGateway string `json:"internetGateway"`
+	InternetGateway string `json:"internetGateway,omitempty"`
 
 	// A map of NAT gateways defined in this VPC
 	// +mapType=atomic
 	// +optional
 	// +nullable
-	NatGateways map[string]string `json:"natGateways"`
+	NatGateways map[string]string `json:"natGateways,omitempty"`
 
 	// The owner of the current VPC
 	// +optional
-	Owner string `json:"owner"`
+	Owner string `json:"owner,omitempty"`
 
 	// The provider config used to look up this VPC
 	// +optional
-	ProviderConfig string `json:"providerConfig"`
+	ProviderConfig string `json:"providerConfig,omitempty"`
 
 	// A map of private subnets defined in this VPC
 	// +listType=atomic
 	// +optional
 	// +nullable
-	PrivateSubnets []StatusSubnets `json:"privateSubnets"`
+	PrivateSubnets []StatusSubnets `json:"privateSubnets,omitempty"`
 
 	// A list of maps of public subnets defined in this VPC
 	// +listType=atomic
 	// +optional
 	// +nullable
-	PublicSubnets []StatusSubnets `json:"publicSubnets"`
+	PublicSubnets []StatusSubnets `json:"publicSubnets,omitempty"`
 
 	// A map of private route tables defined in this VPC
 	// +listType=atomic
 	// +optional
 	// +nullable
-	PrivateRouteTables []StatusRouteTables `json:"privateRouteTables"`
+	PrivateRouteTables []StatusRouteTables `json:"privateRouteTables,omitempty"`
 
 	// A map of public route tables defined in this VPC
 	// +listType=atomic
 	// +optional
 	// +nullable
-	PublicRouteTables []StatusRouteTables `json:"publicRouteTables"`
+	PublicRouteTables []StatusRouteTables `json:"publicRouteTables,omitempty"`
 
 	// The region this VPC is located in
 	// +optional
-	Region string `json:"region"`
+	Region string `json:"region,omitempty"`
 
 	// A map of security groups defined in this VPC
 	// +mapType=atomic
 	// +optional
 	// +nullable
-	SecurityGroups map[string]string `json:"securityGroups"`
+	SecurityGroups map[string]string `json:"securityGroups,omitempty"`
 
 	// A map of transit gateways defined in this VPC
 	// +mapType=atomic
 	// +optional
 	// +nullable
-	TransitGateways map[string]TransitGateway `json:"transitGateways"`
+	TransitGateways map[string]TransitGateway `json:"transitGateways,omitempty"`
 
 	// A map of VPC peering connections defined in this VPC
 	// +mapType=atomic
 	// +optional
 	// +nullable
-	VpcPeeringConnections map[string]PeeringConnection `json:"vpcPeeringConnections"`
+	VpcPeeringConnections map[string]PeeringConnection `json:"vpcPeeringConnections,omitempty"`
 }
 
 type PeeringConnection struct {
