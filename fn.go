@@ -140,7 +140,9 @@ func (f *Function) awsVpcs(search []inp.RemoteVpc, current inp.RemoteVpc, patchT
 				f.log.Info("cannot get account ID", "error", err)
 			} else {
 				vpcs["self"] = fnc.AwsVpc{
-					Owner: id,
+					Owner:          id,
+					ProviderConfig: current.ProviderConfig,
+					Region:         current.Region,
 				}
 			}
 		}

@@ -60,7 +60,6 @@ type AwsVpc struct {
 	// A list of additional VPC CIDR blocks defined in this VPC
 	// +listType=atomic
 	// +optional
-	// +nullable
 	AdditionalCidrBlocks []string `json:"additionalCidrBlocks,omitempty"`
 
 	// The Ipv4 cidr block defined for this VPC
@@ -79,7 +78,6 @@ type AwsVpc struct {
 	// A map of NAT gateways defined in this VPC
 	// +mapType=atomic
 	// +optional
-	// +nullable
 	NatGateways map[string]string `json:"natGateways,omitempty"`
 
 	// The owner of the current VPC
@@ -93,25 +91,21 @@ type AwsVpc struct {
 	// A map of private subnets defined in this VPC
 	// +listType=atomic
 	// +optional
-	// +nullable
 	PrivateSubnets []StatusSubnets `json:"privateSubnets,omitempty"`
 
 	// A list of maps of public subnets defined in this VPC
 	// +listType=atomic
 	// +optional
-	// +nullable
 	PublicSubnets []StatusSubnets `json:"publicSubnets,omitempty"`
 
 	// A map of private route tables defined in this VPC
 	// +listType=atomic
 	// +optional
-	// +nullable
 	PrivateRouteTables []StatusRouteTables `json:"privateRouteTables,omitempty"`
 
 	// A map of public route tables defined in this VPC
 	// +listType=atomic
 	// +optional
-	// +nullable
 	PublicRouteTables []StatusRouteTables `json:"publicRouteTables,omitempty"`
 
 	// The region this VPC is located in
@@ -121,19 +115,16 @@ type AwsVpc struct {
 	// A map of security groups defined in this VPC
 	// +mapType=atomic
 	// +optional
-	// +nullable
 	SecurityGroups map[string]string `json:"securityGroups,omitempty"`
 
 	// A map of transit gateways defined in this VPC
 	// +mapType=atomic
 	// +optional
-	// +nullable
 	TransitGateways map[string]TransitGateway `json:"transitGateways,omitempty"`
 
 	// A map of VPC peering connections defined in this VPC
 	// +mapType=atomic
 	// +optional
-	// +nullable
 	VpcPeeringConnections map[string]PeeringConnection `json:"vpcPeeringConnections,omitempty"`
 }
 
