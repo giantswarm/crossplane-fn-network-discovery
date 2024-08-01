@@ -47,7 +47,6 @@ spec:
                     VPC
                   items:
                     type: string
-                  nullable: true
                   type: array
                   x-kubernetes-list-type: atomic
                 cidrBlock:
@@ -63,7 +62,6 @@ spec:
                   additionalProperties:
                     type: string
                   description: A map of NAT gateways defined in this VPC
-                  nullable: true
                   type: object
                   x-kubernetes-map-type: atomic
                 owner:
@@ -84,7 +82,6 @@ spec:
                       status
                     type: object
                     x-kubernetes-map-type: atomic
-                  nullable: true
                   type: array
                   x-kubernetes-list-type: atomic
                 privateSubnets:
@@ -104,7 +101,6 @@ spec:
                     description: StatusSubnets is a map of subnets and their status
                     type: object
                     x-kubernetes-map-type: atomic
-                  nullable: true
                   type: array
                   x-kubernetes-list-type: atomic
                 providerConfig:
@@ -125,7 +121,6 @@ spec:
                       status
                     type: object
                     x-kubernetes-map-type: atomic
-                  nullable: true
                   type: array
                   x-kubernetes-list-type: atomic
                 publicSubnets:
@@ -145,7 +140,6 @@ spec:
                     description: StatusSubnets is a map of subnets and their status
                     type: object
                     x-kubernetes-map-type: atomic
-                  nullable: true
                   type: array
                   x-kubernetes-list-type: atomic
                 region:
@@ -155,7 +149,6 @@ spec:
                   additionalProperties:
                     type: string
                   description: A map of security groups defined in this VPC
-                  nullable: true
                   type: object
                   x-kubernetes-map-type: atomic
                 transitGateways:
@@ -209,7 +202,6 @@ spec:
                         type: object
                     type: object
                   description: A map of transit gateways defined in this VPC
-                  nullable: true
                   type: object
                   x-kubernetes-map-type: atomic
                 vpcPeeringConnections:
@@ -223,7 +215,6 @@ spec:
                         type: string
                     type: object
                   description: A map of VPC peering connections defined in this VPC
-                  nullable: true
                   type: object
                   x-kubernetes-map-type: atomic
               type: object
