@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### This version contains breaking changes to the API
+
+As part of this release, the output API has been restructured to allow for
+broader extension in the future.
+
+Most `map[string]string` interfaces are now replaced with `map[string]struct`
+interfaces meaning the expected `id` will be one level lower on the `id` field.
+
+This change has been carried out to allow more information to be recovered about
+the network components such as amazon resource names and other information which
+may be useful for understanding how the network looks as part of a composition.
+
 ## [0.2.4] - 2024-06-20
 
 - handle service endpoints locally

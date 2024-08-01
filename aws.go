@@ -619,10 +619,9 @@ func (f *Function) getTransitGateway(client AwsEc2Api, tgwId string) (name strin
 				}
 
 				details.Attachments[tgwName] = xfnd.TransitGatewayAttachment{
-					ID:           *a.TransitGatewayAttachmentId,
-					ResourceID:   *a.ResourceId,
-					RouteTableID: *a.Association.TransitGatewayRouteTableId,
-					Type:         string(a.ResourceType),
+					ID:         *a.TransitGatewayAttachmentId,
+					ResourceID: *a.ResourceId,
+					Type:       string(a.ResourceType),
 				}
 
 				if a.Association != nil {
