@@ -15,7 +15,6 @@ require (
 	github.com/crossplane/crossplane-runtime v1.17.0-rc.0.0.20240509182037-b31be7747c60
 	github.com/crossplane/function-sdk-go v0.2.0
 	github.com/giantswarm/xfnlib v0.0.0-20240727134425-01a8491e4ce3
-	github.com/upbound/provider-aws v1.9.1
 	k8s.io/apimachinery v0.30.3
 	sigs.k8s.io/controller-runtime v0.18.4
 	sigs.k8s.io/controller-tools v0.14.0
@@ -76,6 +75,7 @@ require (
 	github.com/spf13/afero v1.11.0 // indirect
 	github.com/spf13/cobra v1.8.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
+	github.com/upbound/provider-aws v1.9.1 // indirect
 	github.com/yuin/goldmark v1.7.1 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	go.uber.org/zap v1.27.0 // indirect
