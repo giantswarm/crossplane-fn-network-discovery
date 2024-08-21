@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.1] - 2024-08-21
+
 ## [0.2.4] - 2024-06-20
 
 - handle service endpoints locally
@@ -32,7 +34,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Initial release of function-network-discovery
 
-[Unreleased]: https://github.com/giantswarm/crossplane-fn-network-discovery/compare/v0.2.4...HEAD
+[Unreleased]: https://github.com/giantswarm/crossplane-fn-network-discovery/compare/v0.3.1...HEAD
+[0.3.1]: https://github.com/giantswarm/crossplane-fn-network-discovery/compare/v0.2.4...v0.3.1
 [0.2.4]: https://github.com/giantswarm/crossplane-fn-network-discovery/compare/v0.2.3...v0.2.4
 [0.2.3]: https://github.com/giantswarm/crossplane-fn-network-discovery/compare/v0.2.1...v0.2.3
 [0.2.2]: https://github.com/giantswarm/crossplane-fn-network-discovery/compare/v0.2.1...v0.2.2
