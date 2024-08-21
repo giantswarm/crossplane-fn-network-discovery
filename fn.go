@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 
+	xpv1 "github.com/crossplane/crossplane-runtime/apis/common/v1"
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
 	"github.com/crossplane/crossplane-runtime/pkg/fieldpath"
 	fnv1beta1 "github.com/crossplane/function-sdk-go/proto/v1beta1"
@@ -31,7 +32,7 @@ func (f *Function) RunFunction(_ context.Context, req *fnv1beta1.RunFunctionRequ
 		input          inp.Input
 		search         []inp.RemoteVpc = make([]inp.RemoteVpc, 0)
 		region         string
-		providerConfig string
+		providerConfig xpv1.Reference
 	)
 
 	// The composite resource that actually exists.
@@ -73,11 +74,12 @@ func (f *Function) RunFunction(_ context.Context, req *fnv1beta1.RunFunctionRequ
 	var groupTag string
 	_ = f.getStringFromPaved(oxr.Resource, input.Spec.GroupByRef, &groupTag)
 
-	if err = f.getStringFromPaved(oxr.Resource, input.Spec.ProviderConfigRef, &providerConfig); err != nil {
-		f.log.Info("cannot get provider config from input", "error", err)
-		response.Fatal(rsp, errors.Wrap(err, "cannot get provider config from input"))
+	if providerConfig, err = f.getProviderConfigReferenceFromPaved(oxr.Resource, input.Spec.ProviderConfigRef); err != nil {
+		f.log.Info("cannot get provider config reference from input", "error", err)
+		response.Fatal(rsp, errors.Wrap(err, "cannot get provider config reference from input"))
 		return rsp, nil
 	}
+
 	f.log.Info("ProviderConfig", "pc", providerConfig)
 
 	if err = f.getValueInto(oxr.Resource, input.Spec.VpcNameRef, region, providerConfig, groupTag, &search); err != nil {
@@ -89,10 +91,10 @@ func (f *Function) RunFunction(_ context.Context, req *fnv1beta1.RunFunctionRequ
 	switch input.Spec.ProviderType {
 	case "aws":
 		current := inp.RemoteVpc{
-			Name:           "self",
-			Region:         region,
-			ProviderConfig: providerConfig,
-			GroupBy:        groupTag,
+			Name:              "self",
+			Region:            region,
+			ProviderConfigRef: providerConfig,
+			GroupBy:           groupTag,
 		}
 		err = f.awsVpcs(search, current, input.Spec.PatchTo, composed)
 	default:
@@ -123,25 +125,25 @@ func (f *Function) awsVpcs(search []inp.RemoteVpc, current inp.RemoteVpc, patchT
 			n := n
 			var vpc fnc.AwsVpc
 			if vpc, err = f.ReadVpc(&n); err != nil {
-				f.log.Info("cannot read VPC", "error", err, "name", n.Name, "region", n.Region, "providerConfig", n.ProviderConfig)
+				f.log.Info("cannot read VPC", "error", err, "name", n.Name, "region", n.Region, "providerConfig", n.ProviderConfigRef.Name)
 				continue
 			}
 
 			// Copy the  provider config and region from the search input so the
 			// composition doesn't have to re-match it on cross-account lookups.
 			vpc.Region = n.Region
-			vpc.ProviderConfig = n.ProviderConfig
+			vpc.ProviderConfig = n.ProviderConfigRef.Name
 			vpcs[n.Name] = vpc
 		}
 
 		if _, ok := vpcs["self"]; !ok {
 			var id string
-			if id, err = f.GetAccountId(&current.Region, &current.ProviderConfig); err != nil {
+			if id, err = f.GetAccountId(&current.Region, &current.ProviderConfigRef.Name); err != nil {
 				f.log.Info("cannot get account ID", "error", err)
 			} else {
 				vpcs["self"] = fnc.AwsVpc{
 					Owner:          id,
-					ProviderConfig: current.ProviderConfig,
+					ProviderConfig: current.ProviderConfigRef.Name,
 					Region:         current.Region,
 				}
 			}
@@ -153,7 +155,13 @@ func (f *Function) awsVpcs(search []inp.RemoteVpc, current inp.RemoteVpc, patchT
 }
 
 // get array from paved
-func (f *Function) getValueInto(req runtime.Object, ref, region, providerConfig, groupBy string, value *[]inp.RemoteVpc) (err error) {
+func (f *Function) getValueInto(
+	req runtime.Object,
+	ref, region string,
+	providerConfig xpv1.Reference,
+	groupBy string,
+	value *[]inp.RemoteVpc,
+) (err error) {
 	var paved *fieldpath.Paved
 	if paved, err = fieldpath.PaveObject(req); err != nil {
 		return
@@ -167,8 +175,8 @@ func (f *Function) getValueInto(req runtime.Object, ref, region, providerConfig,
 				(*value)[i].Region = region
 			}
 
-			if (*value)[i].ProviderConfig == "" {
-				(*value)[i].ProviderConfig = providerConfig
+			if (*value)[i].ProviderConfigRef.Name == "" {
+				(*value)[i].ProviderConfigRef = providerConfig
 			}
 
 			if (*value)[i].GroupBy == "" {
@@ -178,10 +186,10 @@ func (f *Function) getValueInto(req runtime.Object, ref, region, providerConfig,
 		return
 	}
 	input := inp.RemoteVpc{
-		GroupBy:        groupBy,
-		Name:           s,
-		Region:         region,
-		ProviderConfig: providerConfig,
+		GroupBy:           groupBy,
+		Name:              s,
+		Region:            region,
+		ProviderConfigRef: providerConfig,
 	}
 	*value = append(*value, input)
 	return
@@ -195,6 +203,16 @@ func (f *Function) getStringFromPaved(req runtime.Object, ref string, value *str
 	}
 
 	*value, err = paved.GetString(ref)
+	return
+}
+
+func (f *Function) getProviderConfigReferenceFromPaved(req runtime.Object, ref string) (value xpv1.Reference, err error) {
+	var paved *fieldpath.Paved
+	if paved, err = fieldpath.PaveObject(req); err != nil {
+		return
+	}
+
+	err = paved.GetValueInto(ref, &value)
 	return
 }
 

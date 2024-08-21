@@ -115,8 +115,8 @@ var (
 		return sts.NewFromConfig(cfg)
 	}
 
-	awsConfig = func(region, provider *string, log logging.Logger) (aws.Config, map[string]string, error) {
-		return xfnaws.Config(region, provider, log)
+	awsConfig = func(region, providerCfg *string, log logging.Logger) (aws.Config, map[string]string, error) {
+		return xfnaws.Config(region, providerCfg, log)
 	}
 )
 
@@ -173,9 +173,9 @@ func (f *Function) ReadVpc(input *inp.RemoteVpc) (vpc xfnd.AwsVpc, err error) {
 		ec2client AwsEc2Api
 	)
 
-	f.log.Info("Reading VPC", "vpc", input.Name, "region", input.Region, "providerConfig", input.ProviderConfig, "groupBy", input.GroupBy)
+	f.log.Info("Reading VPC", "vpc", input.Name, "region", input.Region, "providerConfig", input.ProviderConfigRef.Name, "groupBy", input.GroupBy)
 	// Set up the aws client config
-	if cfg, services, err = awsConfig(&input.Region, &input.ProviderConfig, f.log); err != nil {
+	if cfg, services, err = awsConfig(&input.Region, &input.ProviderConfigRef.Name, f.log); err != nil {
 		err = errors.Wrap(err, "failed to load aws config with region "+input.Region)
 		return
 	}
@@ -186,7 +186,7 @@ func (f *Function) ReadVpc(input *inp.RemoteVpc) (vpc xfnd.AwsVpc, err error) {
 		ep = services["ec2"]
 	}
 
-	f.log.Info("setting up ec2 client to region " + input.Region + " with provider config " + input.ProviderConfig + " and endpoint " + ep)
+	f.log.Info("setting up ec2 client to region " + input.Region + " with provider config " + input.ProviderConfigRef.Name + " and endpoint " + ep)
 	ec2client = getEc2Client(cfg, ep)
 	vpc, err = f.getVpc(ec2client, vpcInput, &input.GroupBy)
 	return
