@@ -5,6 +5,7 @@
 package v1beta1
 
 import (
+	xpv1 "github.com/crossplane/crossplane-runtime/apis/common/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -36,7 +37,7 @@ type RemoteVpc struct {
 	Region string `json:"region"`
 
 	// The VPC provider config
-	ProviderConfig string `json:"providerConfig"`
+	ProviderConfigRef xpv1.Reference `json:"providerConfigRef"`
 }
 
 // Spec - Defines the spec given to this input type, providing the required,
