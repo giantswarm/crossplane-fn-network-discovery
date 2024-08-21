@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2024-08-21
+
 ## [0.3.0] - 2024-08-01
 
 ### This version contains breaking changes to the API
@@ -46,7 +48,8 @@ may be useful for understanding how the network looks as part of a composition.
 
 - Initial release of function-network-discovery
 
-[Unreleased]: https://github.com/giantswarm/crossplane-fn-network-discovery/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/giantswarm/crossplane-fn-network-discovery/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/giantswarm/crossplane-fn-network-discovery/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/giantswarm/crossplane-fn-network-discovery/compare/v0.2.4...v0.3.0
 [0.2.4]: https://github.com/giantswarm/crossplane-fn-network-discovery/compare/v0.2.3...v0.2.4
 [0.2.3]: https://github.com/giantswarm/crossplane-fn-network-discovery/compare/v0.2.1...v0.2.3
